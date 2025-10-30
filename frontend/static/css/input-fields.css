@@ -1,0 +1,434 @@
+/* Input Fields CSS */
+
+/* Base Input Field Styles */
+.input-field {
+    margin-bottom: 15px;
+}
+
+.input-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: var(--text-color);
+    font-size: 12px;
+}
+
+.input-field input,
+.input-field select,
+.input-field textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.input-field input:focus,
+.input-field select:focus,
+.input-field textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.25);
+}
+
+.input-field input:invalid {
+    border-color: var(--error-color);
+}
+
+.input-field input:valid {
+    border-color: var(--success-color);
+}
+
+/* Number Field */
+.number-field input[type="number"] {
+    text-align: right;
+}
+
+.number-field .input-with-unit {
+    display: flex;
+    align-items: center;
+}
+
+.number-field .input-with-unit input {
+    flex: 1;
+    margin-right: 8px;
+}
+
+.number-field .input-with-unit .unit {
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+    min-width: 30px;
+}
+
+/* Text Field */
+.text-field input[type="text"],
+.text-field input[type="email"],
+.text-field input[type="url"] {
+    text-align: left;
+}
+
+/* Select Field */
+.select-field select {
+    cursor: pointer;
+}
+
+.select-field select option {
+    background: var(--surface-color);
+    color: var(--text-color);
+}
+
+/* Checkbox Field */
+.checkbox-field {
+    margin-bottom: 15px;
+}
+
+.checkbox-field .checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+.checkbox-field .checkbox-label:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.checkbox-field input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.checkbox-field .checkmark {
+    position: relative;
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background: var(--surface-color);
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    margin-right: 8px;
+}
+
+.checkbox-field input[type="checkbox"]:checked + .checkmark {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.checkbox-field input[type="checkbox"]:checked + .checkmark::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 6px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Range Field */
+.range-field {
+    margin-bottom: 15px;
+}
+
+.range-field .range-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.range-field input[type="range"] {
+    flex: 1;
+    height: 6px;
+    background: var(--border-color);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+.range-field input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.range-field input[type="range"]::-webkit-slider-thumb:hover {
+    background: #00cc00;
+    transform: scale(1.1);
+}
+
+.range-field input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.range-field input[type="range"]::-moz-range-thumb:hover {
+    background: #00cc00;
+    transform: scale(1.1);
+}
+
+.range-field .range-value {
+    min-width: 60px;
+    text-align: center;
+    font-weight: bold;
+    color: var(--primary-color);
+    font-family: 'Courier New', monospace;
+}
+
+/* Textarea Field */
+.textarea-field textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: 'Courier New', monospace;
+}
+
+/* File Field */
+.file-field input[type="file"] {
+    padding: 4px;
+    cursor: pointer;
+}
+
+.file-field input[type="file"]::-webkit-file-upload-button {
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-right: 10px;
+}
+
+.file-field input[type="file"]::-webkit-file-upload-button:hover {
+    background: #0056b3;
+}
+
+/* Color Field */
+.color-field .color-input-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.color-field input[type="color"] {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+}
+
+.color-field input[type="text"] {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+}
+
+/* Date and Time Fields */
+.date-field input[type="date"],
+.time-field input[type="time"] {
+    font-family: 'Courier New', monospace;
+}
+
+/* Required Field Indicators */
+.input-field input:required:invalid {
+    border-color: var(--error-color);
+}
+
+.input-field input:required:valid {
+    border-color: var(--success-color);
+}
+
+.input-field label::after {
+    content: '';
+}
+
+.input-field label[for*="required"]::after,
+.input-field input[required] + label::after {
+    content: ' *';
+    color: var(--error-color);
+}
+
+/* Field Groups */
+.field-group {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.field-group h3 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    border-bottom: 1px solid var(--border-hover);
+    padding-bottom: 5px;
+}
+
+/* Field Validation States */
+.input-field.valid input {
+    border-color: var(--success-color);
+}
+
+.input-field.valid input:focus {
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+}
+
+.input-field.invalid input {
+    border-color: var(--error-color);
+}
+
+.input-field.invalid input:focus {
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+}
+
+.input-field.warning input {
+    border-color: var(--warning-color);
+}
+
+.input-field.warning input:focus {
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.25);
+}
+
+/* Field Help Text */
+.field-help {
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.field-error {
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--error-color);
+    font-weight: bold;
+}
+
+.field-success {
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--success-color);
+    font-weight: bold;
+}
+
+/* Field Layouts */
+.field-row {
+    display: flex;
+    gap: 10px;
+    align-items: end;
+}
+
+.field-row .input-field {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.field-column {
+    display: flex;
+    flex-direction: column;
+}
+
+.field-column .input-field {
+    margin-bottom: 10px;
+}
+
+/* Responsive Input Fields */
+@media (max-width: 768px) {
+    .field-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .field-row .input-field {
+        margin-bottom: 15px;
+    }
+    
+    .range-field .range-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 5px;
+    }
+    
+    .range-field .range-value {
+        text-align: center;
+        min-width: auto;
+    }
+    
+    .color-field .color-input-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .input-with-unit {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .input-with-unit input {
+        margin-right: 0;
+        margin-bottom: 5px;
+    }
+    
+    .input-with-unit .unit {
+        text-align: center;
+    }
+}
+
+/* Animation for Field Changes */
+.input-field input,
+.input-field select,
+.input-field textarea {
+    transition: all 0.3s ease;
+}
+
+.input-field input:focus,
+.input-field select:focus,
+.input-field textarea:focus {
+    transform: translateY(-1px);
+}
+
+/* Disabled State */
+.input-field input:disabled,
+.input-field select:disabled,
+.input-field textarea:disabled {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Placeholder Styling */
+.input-field input::placeholder,
+.input-field textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+/* Autocomplete Styling */
+.input-field input:-webkit-autofill,
+.input-field input:-webkit-autofill:hover,
+.input-field input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px var(--surface-color) inset !important;
+    -webkit-text-fill-color: var(--text-color) !important;
+    border: 1px solid var(--border-color) !important;
+}

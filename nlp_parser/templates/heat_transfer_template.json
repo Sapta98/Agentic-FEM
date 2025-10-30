@@ -1,0 +1,109 @@
+{
+  "simulation_type": "heat_transfer",
+  "pde_config": {
+    "pde_type": "heat_equation",
+    "equations": [
+      "\\frac{\\partial T}{\\partial t} - \\nabla \\cdot (k \\nabla T) = f"
+    ],
+    "variables": ["temperature"],
+    "boundary_conditions": [],
+    "initial_conditions": [],
+    "material_properties": {
+      "thermal_conductivity": null,
+      "density": null,
+      "specific_heat": null
+    },
+    "mesh_parameters": {
+      "mesh_type": "structured",
+      "resolution": 50,
+      "element_type": "hexahedral",
+      "dimensions": {
+        "length": null,
+        "width": null,
+        "height": null
+      }
+    },
+    "solver_parameters": {
+      "linear_solver": "gmres",
+      "preconditioner": "ilu",
+      "tolerance": 1e-6,
+      "max_iterations": 1000
+    },
+    "function_space_order": 1,
+    "time_stepping": {
+      "time_step": 0.01,
+      "total_time": 1.0,
+      "method": "backward_euler"
+    }
+  },
+  "required_components": {
+    "material_type": null,
+    "geometry_type": null,
+    "geometry_dimensions": null,
+    "boundary_conditions": [],
+    "initial_conditions": []
+  },
+  "boundary_condition_options": [
+    {
+      "type": "dirichlet",
+      "name": "Fixed Temperature",
+      "description": "Specify temperature value at boundary",
+      "required_fields": ["temperature_value", "boundary_location"],
+      "example": "100°C at top surface"
+    },
+    {
+      "type": "neumann",
+      "name": "Heat Flux",
+      "description": "Specify heat flux at boundary",
+      "required_fields": ["heat_flux_value", "boundary_location"],
+      "example": "50 W/m² heat flux at left surface"
+    },
+    {
+      "type": "robin",
+      "name": "Convective Heat Transfer",
+      "description": "Heat transfer with surrounding fluid",
+      "required_fields": ["heat_transfer_coefficient", "ambient_temperature", "boundary_location"],
+      "example": "Convection with h=25 W/m²K, T_ambient=20°C"
+    }
+  ],
+  "initial_condition_options": [
+    {
+      "type": "uniform_temperature",
+      "name": "Uniform Initial Temperature",
+      "description": "Constant temperature throughout domain",
+      "required_fields": ["initial_temperature"],
+      "example": "Initial temperature 20°C"
+    },
+    {
+      "type": "spatial_distribution",
+      "name": "Spatial Temperature Distribution",
+      "description": "Temperature varies with position",
+      "required_fields": ["temperature_function"],
+      "example": "T(x,y,z) = 100*sin(πx/L)"
+    }
+  ],
+  "material_property_sources": {
+    "thermal_conductivity": {
+      "unit": "W/(m·K)",
+      "description": "Ability to conduct heat"
+    },
+    "density": {
+      "unit": "kg/m³",
+      "description": "Mass per unit volume"
+    },
+    "specific_heat": {
+      "unit": "J/(kg·K)",
+      "description": "Heat capacity per unit mass"
+    }
+  },
+  "geometry_dimension_requirements": {
+    "bar": ["length", "width", "height"],
+    "beam": ["length", "width", "height"],
+    "plate": ["length", "width", "thickness"],
+    "cube": ["length", "width", "height"],
+    "cylinder": ["length", "radius"],
+    "rod": ["length"],
+    "disc": ["radius"],
+    "line": ["length"]
+  }
+}

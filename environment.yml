@@ -1,0 +1,40 @@
+name: agentic-fem
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - nodejs
+  - npm
+  - pip:
+    - fastapi>=0.104.0
+    - pydantic>=2.4.0
+    - pydantic-settings>=2.0.0
+    - uvicorn>=0.24.0
+    - alembic>=1.12.0
+    - h5py>=3.1.0
+    - redis>=5.0.0
+    - sqlalchemy>=2.0.0
+    - aiofiles>=23.2.0
+    - aiohttp>=3.8.0
+    - httpx>=0.25.0
+    - websockets>=12.0
+    - matplotlib>=3.5.0
+    - numpy>=1.24.0
+    - pandas>=1.3.0
+    - scipy>=1.11.0
+    - gmsh>=4.8.0
+    - meshio>=5.0.0
+    - trimesh>=3.23.0
+    - plotly>=5.17.0
+    - pyvista>=0.40.0
+    - openai>=1.3.0
+    - click>=8.1.0
+    - python-dotenv>=1.0.0
+    - pyyaml>=6.0.0
+    - requests>=2.31.0
+    - rich>=13.0.0
+    - tqdm>=4.66.0
+    - jinja2>=3.1.0
+    - markdown>=3.4.0

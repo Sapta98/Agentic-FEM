@@ -1,0 +1,92 @@
+{
+  "steel": {
+    "density": 7850.0,
+    "thermal_conductivity": 50.0,
+    "specific_heat": 460.0,
+    "youngs_modulus": 200000000000.0,
+    "poisson_ratio": 0.3,
+    "yield_strength": 250000000.0,
+    "thermal_expansion": 0.000012
+  },
+  "aluminum": {
+    "density": 2700.0,
+    "thermal_conductivity": 205.0,
+    "specific_heat": 900.0,
+    "youngs_modulus": 70000000000.0,
+    "poisson_ratio": 0.33,
+    "yield_strength": 95000000.0,
+    "thermal_expansion": 0.000023
+  },
+  "copper": {
+    "density": 8960.0,
+    "thermal_conductivity": 400.0,
+    "specific_heat": 385.0,
+    "youngs_modulus": 110000000000.0,
+    "poisson_ratio": 0.34,
+    "yield_strength": 70000000.0,
+    "thermal_expansion": 0.000017
+  },
+  "concrete": {
+    "density": 2300.0,
+    "thermal_conductivity": 1.7,
+    "specific_heat": 880.0,
+    "youngs_modulus": 30000000000.0,
+    "poisson_ratio": 0.2,
+    "compressive_strength": 30000000.0,
+    "thermal_expansion": 0.000010
+  },
+  "wood": {
+    "density": 600.0,
+    "thermal_conductivity": 0.12,
+    "specific_heat": 1700.0,
+    "youngs_modulus": 12000000000.0,
+    "poisson_ratio": 0.4,
+    "compressive_strength": 40000000.0,
+    "thermal_expansion": 0.000005
+  },
+  "titanium": {
+    "density": 4500.0,
+    "thermal_conductivity": 22.0,
+    "specific_heat": 523.0,
+    "youngs_modulus": 110000000000.0,
+    "poisson_ratio": 0.34,
+    "yield_strength": 880000000.0,
+    "thermal_expansion": 0.0000087
+  },
+  "brass": {
+    "density": 8500.0,
+    "thermal_conductivity": 120.0,
+    "specific_heat": 380.0,
+    "youngs_modulus": 100000000000.0,
+    "poisson_ratio": 0.37,
+    "yield_strength": 200000000.0,
+    "thermal_expansion": 0.000019
+  },
+  "stainless_steel": {
+    "density": 8000.0,
+    "thermal_conductivity": 16.0,
+    "specific_heat": 500.0,
+    "youngs_modulus": 200000000000.0,
+    "poisson_ratio": 0.3,
+    "yield_strength": 300000000.0,
+    "thermal_expansion": 0.000017
+  },
+  "cast_iron": {
+    "density": 7200.0,
+    "thermal_conductivity": 50.0,
+    "specific_heat": 460.0,
+    "youngs_modulus": 150000000000.0,
+    "poisson_ratio": 0.25,
+    "compressive_strength": 400000000.0,
+    "thermal_expansion": 0.000012
+  },
+  "glass": {
+    "density": 2500.0,
+    "thermal_conductivity": 1.0,
+    "specific_heat": 840.0,
+    "youngs_modulus": 70000000000.0,
+    "poisson_ratio": 0.23,
+    "compressive_strength": 1000000000.0,
+    "thermal_expansion": 0.000009
+  }
+}

@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Field Visualization - {field_name}</title>
+<style>
+body {
+	margin: 0;
+	padding: 0;
+	background-color: #1a1a1a;
+	font-family: 'Courier New', monospace;
+	overflow: hidden;
+}
+
+#container {
+	width: 100vw;
+	height: 100vh;
+	position: relative;
+}
+
+#vtk-container {
+	display: block;
+	width: 100%;
+	height: 100%;
+	background: #1a1a1a;
+}
+
+#info {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	background: rgba(0, 0, 0, 0.8);
+	color: white;
+	padding: 10px;
+	border-radius: 5px;
+	font-size: 12px;
+	z-index: 100;
+}
+
+#controls {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	background: rgba(0, 0, 0, 0.9);
+	color: #00ff00;
+	padding: 10px;
+	border-radius: 5px;
+	font-size: 12px;
+	z-index: 100;
+	width: 200px;
+}
+
+.control-group {
+	margin-bottom: 6px;
+}
+
+.control-group label {
+	display: block;
+	margin-bottom: 3px;
+	color: #00ff00;
+	font-size: 10px;
+}
+
+.control-group input, .control-group select {
+	width: 100%;
+	padding: 2px;
+	background: #001100;
+	color: #00ff00;
+	border: 1px solid #00ff00;
+	border-radius: 2px;
+}
+
+.btn {
+	padding: 4px 8px;
+	margin: 2px;
+	border: 1px solid #00ff00;
+	border-radius: 2px;
+	background: #001100;
+	color: #00ff00;
+	cursor: pointer;
+	font-size: 10px;
+	transition: all 0.2s ease;
+}
+
+.btn:hover {
+	background: #003300;
+	border: 2px solid #00ff00;
+}
+
+.btn-secondary {
+	background: #001100;
+	color: #00ff00;
+}
+
+.btn-primary {
+	background: #003300;
+	color: #00ff00;
+}
+
+#view-controls {
+	display: flex;
+	gap: 5px;
+	width: 100%;
+}
+
+#view-controls .btn {
+	flex: 1;
+	width: 100%;
+	padding: 4px;
+	background: #001100;
+	color: #00ff00;
+	border: 1px solid #00ff00;
+	border-radius: 2px;
+	cursor: pointer;
+	font-size: 10px;
+	transition: all 0.2s ease;
+}
+
+#view-controls .btn:hover {
+	background: #003300;
+	border: 2px solid #00ff00;
+}
+
+#colorbar {
+	position: absolute;
+	left: 10px;
+	bottom: 10px;
+	width: 200px;
+	height: 20px;
+	background: rgba(0, 0, 0, 0.8);
+	border-radius: 5px;
+	z-index: 100;
+}
+
+#colorbar-gradient {
+	width: 100%;
+	height: 100%;
+	border-radius: 5px;
+}
+
+#colorbar-labels {
+	position: absolute;
+	left: 0;
+	bottom: 25px;
+	width: 200px;
+	height: 20px;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	color: white;
+	font-size: 10px;
+}
+
+#loading {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: white;
+	font-size: 18px;
+	z-index: 200;
+}
+
+#error {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: #ff4444;
+	font-size: 16px;
+	text-align: center;
+	z-index: 200;
+}
+</style>
+</head>
+<body>
+<div id="container">
+<div id="loading">Loading field visualization...</div>
+<div id="error" style="display: none;"></div>
+<div id="info">
+<div><strong>Field: {field_name}</strong></div>
+<div>Units: {field_units}</div>
+<div>Min: <span id="field-min">-</span></div>
+<div>Max: <span id="field-max">-</span></div>
+<div>Mean: <span id="field-mean">-</span></div>
+</div>
+<div id="controls">
+<div class="control-group">
+<label>Field Display:</label>
+<select id="field-display-select" onchange="changeFieldDisplay(this.value)">
+<option value="none">None (Mesh Only)</option>
+<option value="field" selected>Field Visualization</option>
+</select>
+</div>
+<div class="control-group">
+<label>Representation:</label>
+<select id="representation-select" onchange="changeRepresentation(this.value);">
+<option value="0">Points</option>
+<option value="1">Wireframe</option>
+<option value="2" id="surface-option">Surface</option>
+</select>
+</div>
+<div class="control-group" id="view-controls" style="display: none;">
+<button id="surfaceViewBtn" onclick="showSurfaceView()" class="btn btn-secondary">Surface View</button>
+<button id="volumeViewBtn" onclick="showVolumeView()" class="btn btn-secondary">Volume View</button>
+</div>
+<div class="control-group">
+    <button id="fit-view" class="btn btn-secondary" style="width: 100%;" onclick="fitToView();">Fit to View</button>
+</div>
+</div>
+<div id="colorbar" style="display: none;">
+<div id="colorbar-gradient"></div>
+<div id="colorbar-labels">
+<span id="max-label">Max</span>
+<span id="min-label">Min</span>
+</div>
+</div>
+<div id="vtk-container"></div>
+</div>
+
+<script src="/static/js/vtk.js" onload="console.log('VTK.js script loaded successfully');" onerror="console.error('Failed to load VTK.js script');"></script>
+<script>
+// Data
+const meshData = {mesh_data_js};
+
+const fieldData = {field_data_js};
+
+const settings = {settings_js};
+
+// VTK.js setup
+let renderWindow, renderer, actor;
+let fieldMin, fieldMax, fieldMean;
+let currentColormap = 'viridis';
+let meshDimension = 1; // Default to 1D, will be updated based on mesh data
+let currentViewMode = 'all'; // 'all', 'surface', 'volume'
+
+function hideControlsFor1DMesh() {
+	// Check if this is a 1D mesh
+	if (meshData.cells && Array.isArray(meshData.cells) && meshData.cells.length > 0) {
+		
+		// Hide any surface/volume controls that might exist
+		const surfaceControls = document.querySelectorAll('[id*="surface"], [id*="volume"], [class*="surface"], [class*="volume"]');
+		surfaceControls.forEach(control => {
+			control.style.display = 'none';
+		});
+		
+		// Hide surface option in representation dropdown for 1D meshes
+		const surfaceOption = document.getElementById('surface-option');
+		if (surfaceOption) {
+			surfaceOption.style.display = 'none';
+		}
+	}
+}
+
+function init() {
+
+	// Calculate field statistics
+	calculateFieldStats();
+
+	// Hide inappropriate controls for 1D meshes
+	hideControlsFor1DMesh();
+
+	// Create render window and attach to VTK container (like mesh visualization)
+	window.vtkContainer = document.getElementById('vtk-container');
+	const mainContainer = document.getElementById('container');
+	renderWindow = vtk.Rendering.Core.vtkRenderWindow.newInstance();
+	
+	// Create OpenGL render window and attach to VTK container only
+	const openGLRenderWindow = vtk.Rendering.OpenGL.vtkRenderWindow.newInstance();
+	openGLRenderWindow.setContainer(window.vtkContainer);
+	
+	// Enable high-quality rendering (using supported methods)
+	openGLRenderWindow.setUseOffScreen(false);
+	openGLRenderWindow.setSize(window.vtkContainer.clientWidth, window.vtkContainer.clientHeight);
+	
+	
+	renderWindow.addView(openGLRenderWindow);
+
+	// Create renderer
+	renderer = vtk.Rendering.Core.vtkRenderer.newInstance();
+	renderWindow.addRenderer(renderer);
+
+
+	// Create interactor with mouse controls - bind only to VTK container
+	const interactor = vtk.Rendering.Core.vtkRenderWindowInteractor.newInstance();
+	interactor.setView(openGLRenderWindow);
+	interactor.initialize();
+	interactor.bindEvents(window.vtkContainer);
+	
+	// Set up mouse controls
+	interactor.setInteractorStyle(vtk.Interaction.Style.vtkInteractorStyleTrackballCamera.newInstance());
+	
+
+	// Create field mesh
+	createFieldMesh('all');
+
+	// Setup controls
+	setupControls();
+
+	// Update info
+	updateInfo();
+
+	// Show colorbar
+		showColorbar();
+
+	// Hide loading
+	document.getElementById('loading').style.display = 'none';
+
+	// Start animation
+	renderWindow.render();
+}
+
+function createMeshOnly() {
+	
+	// Determine mesh dimension based on data (same logic as createFieldMesh)
+	if (meshData.faces && meshData.faces.length > 0) {
+		meshDimension = 3; // 3D mesh
+	} else if (meshData.cells && typeof meshData.cells === 'object' && Object.keys(meshData.cells).length > 0) {
+		// Check if we have line elements (1D mesh)
+		if (meshData.cells.line_2nd || meshData.cells.line) {
+			meshDimension = 1; // 1D mesh
+		} else {
+			meshDimension = 2; // 2D mesh
+		}
+	} else {
+		meshDimension = 2; // Default to 2D
+	}
+	
+	// Clear existing actors from renderer
+	if (renderer) {
+		renderer.removeAllActors();
+	}
+
+	// Create VTK polydata
+	const polydata = vtk.Common.DataModel.vtkPolyData.newInstance();
+	const points = vtk.Common.Core.vtkPoints.newInstance();
+	const cellArray = vtk.Common.Core.vtkCellArray.newInstance();
+	const lineCellArray = vtk.Common.Core.vtkCellArray.newInstance();
+
+	// Set vertices
+	const vertices = new Float32Array(meshData.vertices.flat());
+	points.setData(vertices, 3); 
+	polydata.setPoints(points);
+
+	// Process all element types (same logic as createFieldMesh)
+	let processedElements = 0;
+	
+	// Process volume elements (tetrahedrons) - only if viewMode allows volume elements
+	if (meshData.cells && typeof meshData.cells === 'object' && (viewMode === 'all' || viewMode === 'volume')) {
+		console.log('=== PROCESSING VOLUME ELEMENTS ===');
+		console.log('View mode:', viewMode);
+		if (meshData.cells.tetrahedron && meshData.cells.tetrahedron.length > 0) {
+			for (let i = 0; i < meshData.cells.tetrahedron.length; i++) {
+				const tetra = meshData.cells.tetrahedron[i];
+				if (Array.isArray(tetra) && tetra.length === 4) {
+					cellArray.insertNextCell(tetra);
+					processedElements++;
+				}
+			}
+		}
+		
+		if (meshData.cells.tetrahedron_2nd && meshData.cells.tetrahedron_2nd.length > 0) {
+			for (let i = 0; i < meshData.cells.tetrahedron_2nd.length; i++) {
+				const tetra_2nd = meshData.cells.tetrahedron_2nd[i];
+				if (Array.isArray(tetra_2nd) && tetra_2nd.length === 10) {
+					// Convert P2 tetrahedron to 8 P1 tetrahedrons
+					cellArray.insertNextCell([tetra_2nd[0], tetra_2nd[4], tetra_2nd[6], tetra_2nd[7]]);
+					cellArray.insertNextCell([tetra_2nd[4], tetra_2nd[1], tetra_2nd[5], tetra_2nd[8]]);
+					cellArray.insertNextCell([tetra_2nd[6], tetra_2nd[5], tetra_2nd[2], tetra_2nd[9]]);
+					cellArray.insertNextCell([tetra_2nd[7], tetra_2nd[8], tetra_2nd[9], tetra_2nd[3]]);
+					cellArray.insertNextCell([tetra_2nd[4], tetra_2nd[5], tetra_2nd[6], tetra_2nd[7]]);
+					cellArray.insertNextCell([tetra_2nd[4], tetra_2nd[5], tetra_2nd[8], tetra_2nd[7]]);
+					cellArray.insertNextCell([tetra_2nd[5], tetra_2nd[6], tetra_2nd[9], tetra_2nd[7]]);
+					cellArray.insertNextCell([tetra_2nd[4], tetra_2nd[6], tetra_2nd[8], tetra_2nd[9]]);
+					processedElements += 8;
+				}
+			}
+		}
+	}
+	
+	// Process surface elements (triangles) - only if viewMode allows surface elements
+	if (meshData.cells && typeof meshData.cells === 'object' && (viewMode === 'all' || viewMode === 'surface')) {
+		console.log('=== PROCESSING SURFACE ELEMENTS FROM CELLS ===');
+		console.log('View mode:', viewMode);
+		if (meshData.cells.triangle && meshData.cells.triangle.length > 0) {
+			for (let i = 0; i < meshData.cells.triangle.length; i++) {
+				const triangle = meshData.cells.triangle[i];
+				if (Array.isArray(triangle) && triangle.length === 3) {
+					cellArray.insertNextCell(triangle);
+					processedElements++;
+				}
+			}
+		}
+		
+		if (meshData.cells.triangle_2nd && meshData.cells.triangle_2nd.length > 0) {
+			for (let i = 0; i < meshData.cells.triangle_2nd.length; i++) {
+				const triangle_2nd = meshData.cells.triangle_2nd[i];
+				if (Array.isArray(triangle_2nd) && triangle_2nd.length === 6) {
+					// Convert P2 triangle to 4 P1 triangles
+					cellArray.insertNextCell([triangle_2nd[0], triangle_2nd[3], triangle_2nd[5]]);
+					cellArray.insertNextCell([triangle_2nd[3], triangle_2nd[1], triangle_2nd[4]]);
+					cellArray.insertNextCell([triangle_2nd[4], triangle_2nd[2], triangle_2nd[5]]);
+					cellArray.insertNextCell([triangle_2nd[3], triangle_2nd[4], triangle_2nd[5]]);
+					processedElements += 4;
+				}
+			}
+		}
+		
+		if (meshData.cells.quad && meshData.cells.quad.length > 0) {
+			console.log(`Processing ${meshData.cells.quad.length} quad elements`);
+			for (let i = 0; i < meshData.cells.quad.length; i++) {
+				const quad = meshData.cells.quad[i];
+				if (Array.isArray(quad) && quad.length === 4) {
+					// Split quad into two triangles
+					cellArray.insertNextCell([quad[0], quad[1], quad[2]]);
+					cellArray.insertNextCell([quad[0], quad[2], quad[3]]);
+					processedElements += 2;
+				}
+			}
+		}
+	}
+	
+	// Process faces from meshData.faces (for 2D meshes) - only if viewMode allows surface elements
+	if (meshData.faces && meshData.faces.length > 0 && (viewMode === 'all' || viewMode === 'surface')) {
+		console.log('=== PROCESSING FACES FROM MESHDATA.FACES ===');
+		console.log('View mode:', viewMode);
+		console.log('Face cells length:', meshData.faces.length);
+		console.log('First few elements:', meshData.faces.slice(0, 3));
+		
+		for (let i = 0; i < meshData.faces.length; i++) {
+			const face = meshData.faces[i];
+			if (Array.isArray(face) && face.length === 3) {
+				// P1 triangle
+				cellArray.insertNextCell(face);
+				processedElements++;
+			} else if (Array.isArray(face) && face.length === 6) {
+				// P2 triangle - convert to 4 P1 triangles
+				cellArray.insertNextCell([face[0], face[3], face[5]]);
+				cellArray.insertNextCell([face[3], face[1], face[4]]);
+				cellArray.insertNextCell([face[4], face[2], face[5]]);
+				cellArray.insertNextCell([face[3], face[4], face[5]]);
+				processedElements += 4;
+			}
+		}
+	}
+	
+	// Process 1D elements (lines) - use separate cell array for lines
+	let lineElements = 0;
+	if (meshData.cells && typeof meshData.cells === 'object') {
+		if (meshData.cells.line && meshData.cells.line.length > 0) {
+			console.log(`Processing ${meshData.cells.line.length} line elements`);
+			for (let i = 0; i < meshData.cells.line.length; i++) {
+				const line = meshData.cells.line[i];
+				if (Array.isArray(line) && line.length === 2) {
+					lineCellArray.insertNextCell(line);
+					lineElements++;
+				}
+			}
+		}
+		
+		if (meshData.cells.line_2nd && meshData.cells.line_2nd.length > 0) {
+			for (let i = 0; i < meshData.cells.line_2nd.length; i++) {
+				const line_2nd = meshData.cells.line_2nd[i];
+				if (Array.isArray(line_2nd) && line_2nd.length === 3) {
+					// Convert P2 line to 2 P1 lines
+					lineCellArray.insertNextCell([line_2nd[0], line_2nd[1]]);
+					lineCellArray.insertNextCell([line_2nd[1], line_2nd[2]]);
+					lineElements += 2;
+				}
+			}
+		}
+	}
+	
+	console.log(`Processed ${processedElements} poly elements and ${lineElements} line elements for mesh-only`);
+	
+	// Set the appropriate cell data based on what we have
+	if (processedElements > 0) {
+		polydata.setPolys(cellArray);
+		console.log(`Set ${processedElements} poly elements for mesh-only`);
+	}
+	if (lineElements > 0) {
+		polydata.setLines(lineCellArray);
+		console.log(`Set ${lineElements} line elements for mesh-only`);
+	}
+
+	// Create mapper and actor (no field data)
+	const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+	mapper.setInputData(polydata);
+	mapper.setScalarVisibility(false); // No field data to visualize
+	
+	actor = vtk.Rendering.Core.vtkActor.newInstance();
+	actor.setMapper(mapper);
+
+	// Set actor properties based on mesh dimension
+	const actorProps = actor.getProperty();
+	actorProps.setOpacity(0.8);
+	
+	if (meshDimension === 1) {
+		// 1D mesh - use thick lines
+		actorProps.setColor(0.0, 1.0, 0.0); // Green color for mesh
+		actorProps.setLineWidth(15); // Very thick lines
+		actorProps.setRepresentation(1); // Wireframe
+	} else {
+		// 2D/3D mesh - use green surface
+		actorProps.setColor(0.0, 1.0, 0.0); // Green color for mesh
+		actorProps.setRepresentation(2); // Surface
+	}
+
+	// Add to renderer
+	renderer.addActor(actor);
+
+	// Reset camera to fit the mesh
+	renderer.resetCamera();
+	
+	// Get camera for positioning
+	const camera = renderer.getActiveCamera();
+	
+	// For 1D meshes, ensure proper camera positioning
+	if (meshDimension === 1) {
+		camera.setPosition(0, 0, 2); // Position camera to see the line
+		camera.setFocalPoint(0.5, 0, 0); // Focus on center of line
+		camera.setViewUp(0, 1, 0); // Set up direction
+		renderer.resetCamera();
+	}
+	
+	// Force render to ensure mesh is visible
+	renderWindow.render();
+}
+
+function changeFieldDisplay(displayType) {
+	console.log('Changing field display to:', displayType);
+	
+	// Clear all existing actors from renderer
+	if (renderer) {
+		renderer.removeAllActors();
+		console.log('Cleared all actors from renderer');
+	}
+	
+	if (displayType === 'none') {
+		// Show mesh only
+		createMeshOnly();
+		// Hide field-related controls
+		document.getElementById('colormap-group').style.display = 'none';
+		document.getElementById('colorbar').style.display = 'none';
+		document.getElementById('colorbar-labels').style.display = 'none';
+	} else {
+		// Show field visualization
+		createFieldMesh(currentViewMode);
+		// Show field-related controls
+		document.getElementById('colormap-group').style.display = 'block';
+		document.getElementById('colorbar').style.display = 'block';
+		document.getElementById('colorbar-labels').style.display = 'block';
+	}
+	
+	// Render the changes
+	renderWindow.render();
+}
+
+function calculateFieldStats() {
+	const values = fieldData.values;
+	fieldMin = Math.min(...values);
+	fieldMax = Math.max(...values);
+	
+	// Field data loaded successfully
+	fieldMean = values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function createFieldMesh(viewMode = 'all', representation = null) {
+	
+	// Update current view mode
+	currentViewMode = viewMode;
+	
+	// Processing mesh data
+
+	// Determine mesh dimension based on data
+	if (meshData.faces && meshData.faces.length > 0) {
+		meshDimension = 3; // 3D mesh
+	} else if (meshData.cells && typeof meshData.cells === 'object' && Object.keys(meshData.cells).length > 0) {
+		// Check if we have line elements (1D mesh)
+		if (meshData.cells.line_2nd || meshData.cells.line) {
+			meshDimension = 1; // 1D mesh
+		} else {
+			meshDimension = 2; // 2D mesh
+		}
+	} else {
+		meshDimension = 2; // Default to 2D
+	}
+	// Determine mesh dimension
+	
+	// Show/hide view controls based on mesh dimension
+	const viewControls = document.getElementById('view-controls');
+	if (viewControls) {
+		if (meshDimension === 3) {
+			viewControls.style.display = 'block';
+		} else {
+			viewControls.style.display = 'none';
+		}
+	}
+	
+	// Clear existing actors from renderer
+	if (renderer) {
+		renderer.removeAllActors();
+	}
+	
+	if (!meshData.vertices || meshData.vertices.length === 0) {
+		console.error('No mesh data available');
+		throw new Error('No mesh data available');
+	}
+
+	// Create VTK polydata
+	const polydata = vtk.Common.DataModel.vtkPolyData.newInstance();
+	const points = vtk.Common.Core.vtkPoints.newInstance();
+	const cellArray = vtk.Common.Core.vtkCellArray.newInstance();
+	const lineCellArray = vtk.Common.Core.vtkCellArray.newInstance();
+
+	// Set vertices
+	const vertices = new Float32Array(meshData.vertices.flat());
+	points.setData(vertices, 3); 
+	polydata.setPoints(points);
+	
+
+
+	// Set mesh connectivity - filter elements based on viewMode
+	let processedElements = 0;
+	
+	// Process volume elements (3D meshes) - only for volume view or all view
+	if (meshData.cells && typeof meshData.cells === 'object' && meshDimension === 3 && (viewMode === 'all' || viewMode === 'volume')) {
+		console.log(`Processing volume elements for viewMode: ${viewMode}`);
+	// Process volume elements
+		
+		// Process tetrahedron elements
+		if (meshData.cells.tetrahedron && meshData.cells.tetrahedron.length > 0) {
+			for (let i = 0; i < meshData.cells.tetrahedron.length; i++) {
+				const tetra = meshData.cells.tetrahedron[i];
+				if (Array.isArray(tetra) && tetra.length === 4) {
+					cellArray.insertNextCell(tetra);
+					processedElements++;
+				}
+			}
+		}
+		
+		// Process second-order tetrahedron elements
+		if (meshData.cells.tetrahedron_2nd && meshData.cells.tetrahedron_2nd.length > 0) {
+			for (let i = 0; i < meshData.cells.tetrahedron_2nd.length; i++) {
+				const tetra_2nd = meshData.cells.tetrahedron_2nd[i];
+				if (Array.isArray(tetra_2nd) && tetra_2nd.length === 10) {
+					// Convert P2 tetrahedron to 8 P1 tetrahedrons (like mesh preview)
+					cellArray.insertNextCell([tetra_2nd[0], tetra_2nd[4], tetra_2nd[6], tetra_2nd[7]]);
+					cellArray.insertNextCell([tetra_2nd[4], tetra_2nd[1], tetra_2nd[5], tetra_2nd[8]]);
+					cellArray.insertNextCell([tetra_2nd[6], tetra_2nd[5], tetra_2nd[2], tetra_2nd[9]]);
+					cellArray.insertNextCell([tetra_2nd[7], tetra_2nd[8], tetra_2nd[9], tetra_2nd[3]]);
+					cellArray.insertNextCell([tetra_2nd[0], tetra_2nd[4], tetra_2nd[7], tetra_2nd[6]]);
+					cellArray.insertNextCell([tetra_2nd[4], tetra_2nd[1], tetra_2nd[8], tetra_2nd[5]]);
+					cellArray.insertNextCell([tetra_2nd[6], tetra_2nd[5], tetra_2nd[9], tetra_2nd[7]]);
+					cellArray.insertNextCell([tetra_2nd[7], tetra_2nd[8], tetra_2nd[4], tetra_2nd[6]]);
+					processedElements += 8;
+				}
+			}
+		}
+	}
+	
+	// Process surface elements (faces) - only for surface view or all view
+	if ((viewMode === 'all' || viewMode === 'surface') && 
+		((meshData.cells && typeof meshData.cells === 'object') || 
+		(meshData.faces && meshData.faces.length > 0))) {
+		console.log(`Processing surface elements for viewMode: ${viewMode}`);
+	// Process surface elements
+		
+		// Process surface elements from cells dictionary
+		if (meshData.cells && typeof meshData.cells === 'object') {
+			// Process triangle elements
+			if (meshData.cells.triangle && meshData.cells.triangle.length > 0) {
+				for (let i = 0; i < meshData.cells.triangle.length; i++) {
+					const triangle = meshData.cells.triangle[i];
+					if (Array.isArray(triangle) && triangle.length === 3) {
+						cellArray.insertNextCell(triangle);
+						processedElements++;
+					}
+				}
+			}
+			
+			// Process second-order triangle elements
+			if (meshData.cells.triangle_2nd && meshData.cells.triangle_2nd.length > 0) {
+				for (let i = 0; i < meshData.cells.triangle_2nd.length; i++) {
+					const triangle_2nd = meshData.cells.triangle_2nd[i];
+					if (Array.isArray(triangle_2nd) && triangle_2nd.length === 6) {
+						// Convert P2 triangle to 4 P1 triangles (like mesh preview)
+						cellArray.insertNextCell([triangle_2nd[0], triangle_2nd[3], triangle_2nd[5]]);
+						cellArray.insertNextCell([triangle_2nd[3], triangle_2nd[1], triangle_2nd[4]]);
+						cellArray.insertNextCell([triangle_2nd[4], triangle_2nd[2], triangle_2nd[5]]);
+						cellArray.insertNextCell([triangle_2nd[3], triangle_2nd[4], triangle_2nd[5]]);
+						processedElements += 4;
+					}
+				}
+			}
+			
+			// Process quad elements
+			if (meshData.cells.quad && meshData.cells.quad.length > 0) {
+				for (let i = 0; i < meshData.cells.quad.length; i++) {
+					const quad = meshData.cells.quad[i];
+					if (Array.isArray(quad) && quad.length === 4) {
+						// Split quad into two triangles
+						cellArray.insertNextCell([quad[0], quad[1], quad[2]]);
+						cellArray.insertNextCell([quad[0], quad[2], quad[3]]);
+						processedElements += 2;
+					}
+				}
+			}
+		}
+		
+		// Process faces from meshData.faces (for 2D meshes) - only if viewMode allows surface elements
+	if (meshData.faces && meshData.faces.length > 0 && (viewMode === 'all' || viewMode === 'surface')) {
+		console.log(`Processing faces for viewMode: ${viewMode}`);
+		// Process faces from meshData.faces
+			
+			for (let i = 0; i < meshData.faces.length; i++) {
+				const face = meshData.faces[i];
+				if (Array.isArray(face) && face.length === 3) {
+					// P1 triangle
+					cellArray.insertNextCell(face);
+					processedElements++;
+				} else if (Array.isArray(face) && face.length === 6) {
+					// P2 triangle - convert to 4 P1 triangles
+					cellArray.insertNextCell([face[0], face[3], face[5]]);
+					cellArray.insertNextCell([face[3], face[1], face[4]]);
+					cellArray.insertNextCell([face[4], face[2], face[5]]);
+					cellArray.insertNextCell([face[3], face[4], face[5]]);
+					processedElements += 4;
+				}
+			}
+		}
+		
+		// Processed surface elements
+	}
+	
+	// Process 1D elements (lines) - always process these regardless of view mode
+	if (meshData.cells && typeof meshData.cells === 'object') {
+		// Process line elements
+		if (meshData.cells.line && meshData.cells.line.length > 0) {
+			for (let i = 0; i < meshData.cells.line.length; i++) {
+				const line = meshData.cells.line[i];
+				if (Array.isArray(line) && line.length === 2) {
+					cellArray.insertNextCell(line);
+					processedElements++;
+				}
+			}
+		}
+		
+		// Process second-order line elements (1D)
+		if (meshData.cells.line_2nd && meshData.cells.line_2nd.length > 0) {
+			for (let i = 0; i < meshData.cells.line_2nd.length; i++) {
+				const line_2nd = meshData.cells.line_2nd[i];
+				if (Array.isArray(line_2nd) && line_2nd.length === 3) {
+					// Convert P2 line to 2 P1 lines
+					cellArray.insertNextCell([line_2nd[0], line_2nd[1]]);
+					cellArray.insertNextCell([line_2nd[1], line_2nd[2]]);
+					processedElements += 2;
+				}
+			}
+		}
+	}
+	
+	// Set mesh connectivity
+	
+	// Process 1D elements (lines) - use separate cell array for lines
+	let lineElements = 0;
+	if (meshData.cells && typeof meshData.cells === 'object') {
+		if (meshData.cells.line && meshData.cells.line.length > 0) {
+			console.log(`Processing ${meshData.cells.line.length} line elements`);
+			for (let i = 0; i < meshData.cells.line.length; i++) {
+				const line = meshData.cells.line[i];
+				if (Array.isArray(line) && line.length === 2) {
+					lineCellArray.insertNextCell(line);
+					lineElements++;
+				}
+			}
+		}
+		
+		if (meshData.cells.line_2nd && meshData.cells.line_2nd.length > 0) {
+			for (let i = 0; i < meshData.cells.line_2nd.length; i++) {
+				const line_2nd = meshData.cells.line_2nd[i];
+				if (Array.isArray(line_2nd) && line_2nd.length === 3) {
+					// Convert P2 line to 2 P1 lines
+					lineCellArray.insertNextCell([line_2nd[0], line_2nd[1]]);
+					lineCellArray.insertNextCell([line_2nd[1], line_2nd[2]]);
+					lineElements += 2;
+				}
+			}
+		}
+	}
+	
+	// Set the appropriate cell data based on what we have
+	// Set mesh connectivity
+	if (processedElements > 0) {
+		polydata.setPolys(cellArray);
+	}
+	if (lineElements > 0) {
+		polydata.setLines(lineCellArray);
+	}
+	
+	// Debug element counts
+	console.log(`=== ELEMENT PROCESSING SUMMARY ===`);
+	console.log(`View mode: ${viewMode}`);
+	console.log(`Processed surface/volume elements: ${processedElements}`);
+	console.log(`Processed line elements: ${lineElements}`);
+	console.log(`Total elements: ${processedElements + lineElements}`);
+
+	// Add field data for coloring
+	// Check if fieldData is properly loaded
+	if (typeof fieldData === 'undefined') {
+		console.error('fieldData is undefined!');
+		return;
+	}
+	if (!fieldData.values) {
+		console.error('fieldData.values is undefined!');
+		return;
+	}
+	
+	// Handle mesh-only visualization (no field data)
+	if (!fieldData.values || fieldData.values.length === 0) {
+		// Create mesh without field data
+		createMeshOnly();
+		return;
+	}
+	
+	if (fieldData.values.length !== meshData.vertices.length) {
+		console.warn(`WARNING: Field values length (${fieldData.values.length}) does not match vertices length (${meshData.vertices.length})`);
+	}
+	
+	// CRITICAL: Ensure scalar array matches mesh points exactly
+	// Validate scalar data
+	const numPoints = polydata.getPoints().getNumberOfPoints();
+	const numValues = fieldData.values.length;
+	
+	console.log('=== SCALAR DATA VALIDATION ===');
+	console.log('Polydata points count:', numPoints);
+	console.log('Field values count:', numValues);
+	console.log('Values match points:', numPoints === numValues);
+	
+	if (numPoints !== numValues) {
+		console.error(`CRITICAL ERROR: Point count (${numPoints}) != Value count (${numValues})`);
+		console.error('This will cause scalar coloring to fail!');
+		
+		// Try to fix by truncating or padding values
+		let fixedValues = fieldData.values;
+		if (numValues > numPoints) {
+			fixedValues = fieldData.values.slice(0, numPoints);
+			console.log(`Truncated values to ${numPoints} to match points`);
+		} else if (numValues < numPoints) {
+			// Pad with last value
+			const lastValue = fieldData.values[fieldData.values.length - 1];
+			fixedValues = [...fieldData.values, ...Array(numPoints - numValues).fill(lastValue)];
+			console.log(`Padded values to ${numPoints} to match points`);
+		}
+		fieldData.values = fixedValues;
+	}
+	
+	// Create scalar array
+	const scalarValues = new Float32Array(fieldData.values.slice(0, numPoints));
+	
+	// Create scalar array
+	let scalars = null;
+	try {
+		scalars = vtk.Common.Core.vtkDataArray.newInstance({
+			name: 'values',
+		numberOfComponents: 1,
+			values: scalarValues
+		});
+	} catch (e) {
+		console.error('Failed to create scalars:', e);
+	}
+	
+	if (!scalars) {
+		try {
+			scalars = vtk.Common.Core.vtkDataArray.newInstance({
+				name: 'values',
+				numberOfComponents: 1,
+				size: numPoints
+			});
+			for (let i = 0; i < numPoints; i++) {
+				scalars.setValue(i, scalarValues[i]);
+			}
+		} catch (e) {
+			console.error('Failed to create scalars:', e);
+		}
+	}
+	
+	if (scalars) {
+		// Bind scalar data to polydata using Method 1 (Direct setScalars)
+		polydata.getPointData().setScalars(scalars);
+		polydata.modified();
+	} else {
+		console.error('CRITICAL: Failed to create scalar array!');
+	}
+	
+	// Verify scalar binding
+	console.log('=== SCALAR BINDING VERIFICATION ===');
+	console.log('Scalars set on polydata:', polydata.getPointData().getScalars() ? 'YES' : 'NO');
+	console.log('Active scalars set:', polydata.getPointData().getActiveScalars() ? 'YES' : 'NO');
+	console.log('Scalar array size:', scalars.getNumberOfTuples());
+	console.log('Scalar array components:', scalars.getNumberOfComponents());
+	
+	// Check for invalid values
+	const scalarArrayValues = Array.from(scalars.getData());
+	const hasNaN = scalarArrayValues.some(v => isNaN(v));
+	const hasInf = scalarArrayValues.some(v => !isFinite(v));
+	const allZero = scalarArrayValues.every(v => v === 0);
+	
+	console.log('=== SCALAR VALUE VALIDATION ===');
+	console.log('Has NaN values:', hasNaN);
+	console.log('Has infinite values:', hasInf);
+	console.log('All values zero:', allZero);
+	console.log('Min value:', Math.min(...scalarArrayValues));
+	console.log('Max value:', Math.max(...scalarArrayValues));
+	
+	if (hasNaN || hasInf) {
+		console.error('CRITICAL: Scalar array contains NaN or infinite values!');
+	}
+	if (allZero) {
+		console.error('CRITICAL: All scalar values are zero!');
+	}
+	
+
+	// Create mapper and actor
+	const mapper = vtk.Rendering.Core.vtkMapper.newInstance();
+	
+	// CRITICAL: Set input data AFTER scalar data is bound
+	mapper.setInputData(polydata);
+	
+	// Force mapper to update with the new polydata
+	mapper.modified();
+	
+	// CRITICAL: Configure mapper for point data scalars
+	mapper.setScalarVisibility(true);
+	mapper.setScalarModeToUsePointData();
+	mapper.setColorModeToMapScalars();
+	mapper.setColorByArrayName('values');
+	mapper.setScalarRange(fieldMin, fieldMax);
+	
+	// Force scalar visibility - this is critical for coloring
+	mapper.setScalarVisibility(true);
+	
+	// Additional mapper configuration
+	if (mapper.setScalarArrayName) {
+		mapper.setScalarArrayName('values');
+	}
+	
+	// CRITICAL: Ensure mapper uses the scalar data for coloring
+	mapper.setScalarModeToUsePointData();
+	mapper.setColorModeToMapScalars();
+	
+	// Verify mapper configuration
+	console.log('=== MAPPER CONFIGURATION VERIFICATION ===');
+	console.log('Mapper scalar visibility:', mapper.getScalarVisibility());
+	console.log('Mapper scalar mode:', mapper.getScalarMode());
+	console.log('Mapper scalar range:', mapper.getScalarRange());
+	console.log('Mapper color by array name:', mapper.getColorByArrayName());
+	console.log('Mapper color mode:', mapper.getColorMode());
+	
+	// Verify mapper input
+	const mapperInput = mapper.getInputData();
+	if (mapperInput) {
+		const pointData = mapperInput.getPointData();
+		console.log('Mapper input has point data:', pointData ? 'YES' : 'NO');
+		console.log('Mapper input has scalars:', pointData.getScalars() ? 'YES' : 'NO');
+		if (pointData.getScalars()) {
+			console.log('Mapper input scalar count:', pointData.getScalars().getNumberOfTuples());
+			console.log('Mapper input scalar name:', pointData.getScalars().getName ? pointData.getScalars().getName() : 'No name method');
+		}
+	}
+
+	// Use ColorTransferFunction for scalar coloring (VTK.js standard approach)
+	const lutData = fieldData.lookup_table;
+	let lut = null;
+	
+	// Always use ColorTransferFunction - it's the standard VTK.js approach for scalar coloring
+	lut = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+	
+	if (lutData && lutData.colors && lutData.colors.length > 0) {
+		
+		// Set the mapping range
+		lut.setMappingRange(lutData.range[0], lutData.range[1]);
+		
+		// Add color points to the transfer function
+		// ColorTransferFunction expects normalized values [0,1] and RGB colors
+		const range = lutData.range[1] - lutData.range[0];
+		for (let i = 0; i < lutData.colors.length; i++) {
+			const color = lutData.colors[i];
+			// Normalize the scalar value to [0,1] range
+			const normalizedValue = range > 0 ? (lutData.range[0] + (i / (lutData.colors.length - 1)) * range) : lutData.range[0];
+			// Add RGB color point (alpha is ignored in ColorTransferFunction)
+			lut.addRGBPoint(normalizedValue, color[0], color[1], color[2]);
+		}
+		
+	} else {
+		// Create a default viridis-like gradient
+		lut.setMappingRange(fieldMin, fieldMax);
+		
+		// Add some default color points for a viridis-like gradient
+		const range = fieldMax - fieldMin;
+		if (range > 0) {
+			lut.addRGBPoint(fieldMin, 0.267, 0.004, 0.329); // Dark purple
+			lut.addRGBPoint(fieldMin + range * 0.25, 0.282, 0.140, 0.457); // Purple-blue
+			lut.addRGBPoint(fieldMin + range * 0.5, 0.253, 0.265, 0.529); // Blue
+			lut.addRGBPoint(fieldMin + range * 0.75, 0.206, 0.371, 0.406); // Blue-green
+			lut.addRGBPoint(fieldMax, 0.993, 0.906, 0.144); // Yellow
+		}
+		
+		console.log('ColorTransferFunction configured with default gradient');
+	}
+	
+	// Set the lookup table on the mapper
+	mapper.setLookupTable(lut);
+	
+	// Debug scalar field data
+	console.log('=== SCALAR FIELD DEBUG ===');
+	console.log('Field values:', fieldData.values);
+	console.log('Field min:', fieldMin, 'Field max:', fieldMax);
+	console.log('Scalar range set to:', fieldMin, 'to', fieldMax);
+	console.log('Scalar visibility:', mapper.getScalarVisibility());
+	console.log('Scalar mode:', mapper.getScalarMode());
+	console.log('Number of scalars:', polydata.getPointData().getScalars() ? polydata.getPointData().getScalars().getNumberOfTuples() : 'No scalars');
+	console.log('Lookup table created with VTK.js LookupTable');
+	console.log('Current colormap:', currentColormap);
+	console.log('Lookup table range:', lut.getRange());
+	console.log('Lookup table size:', lut.getSize ? lut.getSize() : 'getSize not available');
+
+	actor = vtk.Rendering.Core.vtkActor.newInstance();
+	actor.setMapper(mapper);
+
+	// Set actor properties (like mesh visualization)
+	const actorProps = actor.getProperty();
+	
+	// CRITICAL: Don't set actor color - let scalar field coloring work
+	// actorProps.setColor() would override scalar coloring
+	
+	// Set representation based on mesh dimension and parameter
+	if (meshData.vertices && meshData.vertices.length > 0) {
+		// Use the computed meshDimension to choose behavior
+		if (meshDimension === 1) {
+			// 1D mesh - use wireframe for line visibility (like mesh visualization)
+			actorProps.setRepresentation(1); // Wireframe
+			actorProps.setLineWidth(15); // Very thick lines for visibility (like mesh visualization)
+			// Don't set color - let scalar field coloring work
+			console.log('Set 1D mesh wireframe with thick lines');
+			console.log('Actor representation:', actorProps.getRepresentation());
+			console.log('Actor line width:', actorProps.getLineWidth());
+		} else {
+			// 2D/3D mesh - use representation parameter if provided, otherwise default to surface
+			const repValue = representation !== null ? representation : 2; // Default to surface
+			actorProps.setRepresentation(repValue);
+			console.log(`Set ${meshDimension}D mesh representation to:`, repValue);
+			
+			// Set additional properties based on representation
+			if (repValue === 0) {
+				// Points representation
+				actorProps.setPointSize(meshDimension === 2 ? 5 : 3);
+			} else if (repValue === 1) {
+				// Wireframe representation
+				actorProps.setLineWidth(2);
+				actorProps.setEdgeVisibility(true);
+			} else if (repValue === 2) {
+				// Surface representation
+				actorProps.setOpacity(0.8);
+				actorProps.setEdgeVisibility(true);
+			}
+		}
+	}
+	
+	// Debug actor properties
+	// Set actor properties
+
+	// Add to renderer
+	renderer.addActor(actor);
+	window.actor = actor; // Store globally like mesh visualization
+	window.renderer = renderer; // Store globally like mesh visualization
+	window.renderWindow = renderWindow; // Store globally like mesh visualization
+
+	// Reset camera to fit the mesh
+	renderer.resetCamera();
+	
+	// Get camera for positioning and debugging
+	const camera = renderer.getActiveCamera();
+	
+	// For 1D meshes, ensure proper camera positioning (like mesh visualization)
+	if (meshDimension === 1) {
+		// Calculate actual mesh bounds and center (like mesh visualization)
+		const bounds = polydata.getBounds();
+		const center = [
+			(bounds[0] + bounds[1]) / 2,
+			(bounds[2] + bounds[3]) / 2,
+			(bounds[4] + bounds[5]) / 2
+		];
+		
+		// Position camera above the mesh center (like mesh visualization)
+		camera.setPosition(center[0], center[1], center[2] + 2);
+		camera.setFocalPoint(center[0], center[1], center[2]);
+		camera.setViewUp(0, 1, 0);
+		
+		// Set camera clipping planes to ensure 1D line is visible
+		camera.setClippingRange(0.1, 100);
+		
+		renderer.resetCamera();
+		
+		// Debug scalar coloring
+		console.log('=== SCALAR COLORING DEBUG ===');
+		console.log('Mapper scalar visibility:', mapper.getScalarVisibility());
+		console.log('Mapper scalar mode:', mapper.getScalarMode());
+		console.log('Mapper scalar range:', mapper.getScalarRange());
+		console.log('Actor representation:', actorProps.getRepresentation());
+		console.log('Actor line width:', actorProps.getLineWidth());
+	}
+	
+	// Show colorbar for field visualization
+	showColorbar();
+	
+	// Final debug check for scalar coloring
+	// Final verification
+	console.log('=== FINAL SCALAR COLORING CHECK ===');
+	console.log('Polydata has scalars:', polydata.getPointData().getScalars() ? 'YES' : 'NO');
+	console.log('Mapper scalar visibility:', mapper.getScalarVisibility());
+	console.log('Mapper scalar mode:', mapper.getScalarMode());
+	console.log('Mapper lookup table:', mapper.getLookupTable() ? 'SET' : 'NOT SET');
+	console.log('Actor added to renderer:', renderer.getActors().length > 0);
+	
+	// Force render to ensure mesh is visible
+	renderWindow.render();
+}
+
+function setupControls() {
+	// Colormap is now fixed to viridis - no controls needed
+
+	// Opacity change
+
+	// Range selection removed - no longer needed
+}
+
+function updateInfo() {
+	document.getElementById('field-min').textContent = fieldMin.toFixed(3);
+	document.getElementById('field-max').textContent = fieldMax.toFixed(3);
+	document.getElementById('field-mean').textContent = fieldMean.toFixed(3);
+}
+
+function showColorbar() {
+	const colorbar = document.getElementById('colorbar');
+	if (colorbar) {
+		colorbar.style.display = 'block';
+	updateColorbar();
+	}
+}
+
+function updateVTKColormap() {
+	if (!window.actor || !window.actor.getMapper()) {
+		console.error('Actor or mapper not available');
+		return;
+	}
+	
+	const mapper = window.actor.getMapper();
+	const lut = mapper.getLookupTable();
+	
+	if (!lut) {
+		console.error('Lookup table not available');
+		return;
+	}
+        
+        // Always use viridis colormap
+        const vtkPresetName = 'viridis';
+        
+        // Update the lookup table with new colormap
+        lut.setRange(fieldMin, fieldMax);
+        lut.setNumberOfColors(256); // Use standard 256 colors
+        
+        // Apply the built-in colormap preset
+        try {
+            // Try to use VTK.js built-in colormap if available
+            if (vtk.Rendering.Core.ColorTransferFunction && vtk.Rendering.Core.ColorTransferFunction.ColorMaps) {
+                console.log('Available VTK colormaps:', vtk.Rendering.Core.ColorTransferFunction.ColorMaps.getPresetNames());
+                const preset = vtk.Rendering.Core.ColorTransferFunction.ColorMaps.getPresetByName(vtkPresetName);
+                if (preset) {
+                    console.log('Using VTK preset:', vtkPresetName);
+                    lut.applyColorMap(preset);
+                } else {
+                    console.log('VTK preset not found:', vtkPresetName, 'using fallback');
+                    // Fallback to default colormap
+                    lut.setHueRange(0.0, 0.67); // Blue to red
+                }
+            } else {
+                // Fallback to default colormap
+                lut.setHueRange(0.0, 0.67); // Blue to red
+            }
+        } catch (error) {
+            console.log('Using fallback colormap:', error);
+            // Fallback to default colormap
+            lut.setHueRange(0.0, 0.67); // Blue to red
+        }
+        
+	// Force the mapper to update
+	mapper.setScalarRange(fieldMin, fieldMax);
+	
+	// Force render
+	if (window.renderWindow) {
+		window.renderWindow.render();
+	}
+}
+
+function updateColorbar() {
+	const gradient = document.getElementById('colorbar-gradient');
+	
+	// Always use viridis gradient
+	const gradientCSS = 'linear-gradient(to right, #440154, #482777, #3f4a8a, #31678e, #26838f, #1f9d8a, #6cce5a, #b6de2b, #fee825)';
+	
+	if (gradient) {
+		gradient.style.background = gradientCSS;
+	}
+
+	// Update labels
+	document.getElementById('max-label').textContent = fieldMax.toFixed(2);
+	document.getElementById('min-label').textContent = fieldMin.toFixed(2);
+}
+
+function showError(message) {
+	document.getElementById('loading').style.display = 'none';
+	document.getElementById('error').style.display = 'block';
+	document.getElementById('error').textContent = message;
+}
+
+// Fit to view function (like mesh visualization)
+function fitToView() {
+	
+	if (window.renderer && window.actor && window.renderWindow) {
+		window.renderer.resetCamera();
+		window.renderWindow.render();
+	} else {
+	}
+}
+
+// Change representation function (like mesh visualization)
+function showSurfaceView() {
+	currentViewMode = 'surface';
+	createFieldMesh('surface');
+}
+
+function showVolumeView() {
+	currentViewMode = 'volume';
+	createFieldMesh('volume');
+}
+
+
+function changeRepresentation(value) {
+	
+	const repValue = parseInt(value);
+	
+	if (meshDimension === 1) {
+		// For 1D meshes, handle points and wireframe representations only
+		if (window.actor && window.renderWindow) {
+			if (repValue === 0) {
+				// Points representation
+				const actorProps = window.actor.getProperty();
+				actorProps.setRepresentation(0); // Points
+				actorProps.setPointSize(8); // Large points for visibility
+				actorProps.setLineWidth(1); // Reset line width
+			} else if (repValue === 1) {
+				// Wireframe representation - recreate mesh with proper line connectivity
+				createFieldMesh(currentViewMode, 1);
+			}
+			
+			// Force render
+			window.renderWindow.render();
+		}
+	} else if (meshDimension === 2) {
+		// For 2D meshes, handle points, wireframe, and surface representations
+		if (window.actor && window.renderWindow) {
+			const actorProps = window.actor.getProperty();
+			
+			if (repValue === 0) {
+				// Points representation
+				actorProps.setRepresentation(0); // Points
+				actorProps.setPointSize(5);
+				actorProps.setLineWidth(1);
+				actorProps.setEdgeVisibility(false);
+			} else if (repValue === 1) {
+				// Wireframe representation - recreate mesh to preserve view mode
+				createFieldMesh(currentViewMode, 1);
+			} else if (repValue === 2) {
+				// Surface representation
+				actorProps.setRepresentation(2); // Surface
+				actorProps.setOpacity(0.8);
+				actorProps.setPointSize(1);
+				actorProps.setLineWidth(1);
+				actorProps.setEdgeVisibility(true); // Show edges on surface
+			}
+			
+			// Don't reset camera - keep current camera position
+			window.renderWindow.render();
+		}
+	} else if (meshDimension === 3) {
+		// For 3D meshes, handle points, wireframe, and surface representations
+		if (window.actor && window.renderWindow) {
+			const actorProps = window.actor.getProperty();
+			
+			if (repValue === 0) {
+				// Points representation
+				actorProps.setRepresentation(0); // Points
+				actorProps.setPointSize(3);
+			} else if (repValue === 1) {
+				// Wireframe representation - recreate mesh to preserve view mode
+				console.log('Recreating 3D mesh with wireframe representation...');
+				createFieldMesh(currentViewMode, 1);
+			} else if (repValue === 2) {
+				// Surface representation
+				actorProps.setRepresentation(2); // Surface
+				actorProps.setOpacity(0.8);
+				actorProps.setEdgeVisibility(true);
+				actorProps.setLineWidth(1);
+			}
+			
+			// Don't reset camera - keep current camera position
+			window.renderWindow.render();
+		}
+	}
+	
+	console.log('Representation changed to:', value);
+}
+
+// Handle window resize
+window.addEventListener('resize', function() {
+	if (renderWindow) {
+		const openGLRenderWindow = renderWindow.getViews()[0];
+		openGLRenderWindow.setSize(window.innerWidth, window.innerHeight);
+		renderWindow.render();
+	}
+});
+
+// Start when page loads
+window.addEventListener('load', init);
+</script>
+</body>
+</html>

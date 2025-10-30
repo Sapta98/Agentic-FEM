@@ -1,0 +1,16 @@
+{
+  "name": "tech-challenge",
+  "version": "1.0.0",
+  "description": "This is a comprehensive finite element simulation system that processes natural language prompts to generate 3D meshes and solve physics problems. The system combines NLP parsing, mesh generation, and FEniCS-based PDE solving in a modular architecture.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "vtk.js": "^26.1.0"
+  }
+}

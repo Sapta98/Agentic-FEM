@@ -1,0 +1,551 @@
+/* Main CSS for FEM Simulation Frontend */
+
+/* CSS Variables for Theme */
+:root {
+    --primary-color: #00ff00;
+    --secondary-color: #007bff;
+    --background-color: #1a1a1a;
+    --surface-color: #2d2d2d;
+    --text-color: #ffffff;
+    --text-muted: #6c757d;
+    --border-color: rgba(255, 255, 255, 0.2);
+    --border-hover: rgba(0, 255, 0, 0.3);
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+}
+
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+/* Terminal Container */
+.terminal-container {
+    display: flex;
+    height: 100vh;
+    background: var(--background-color);
+}
+
+/* Left Panel - Command Input */
+.left-panel {
+    width: 300px;
+    background: var(--surface-color);
+    border-right: 1px solid var(--border-color);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.command-input {
+    width: 100%;
+    padding: 12px;
+    background: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 100px;
+}
+
+.command-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.2);
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--primary-color);
+    color: var(--background-color);
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+    background: #00cc00;
+    transform: translateY(-1px);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+}
+
+/* Center Panel - Visualization */
+.center-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.center-content {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--background-color);
+    position: relative;
+}
+
+.center-content iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+    background: var(--surface-color);
+}
+
+/* Right Panel - Configuration */
+.right-panel {
+    width: 350px;
+    background: var(--surface-color);
+    border-left: 1px solid var(--border-color);
+    padding: 20px;
+    overflow-y: auto;
+    max-height: 100vh;
+}
+
+/* Configuration Sections */
+.config-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.config-section h3 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    border-bottom: 1px solid var(--border-hover);
+    padding-bottom: 5px;
+}
+
+.config-group {
+    margin-bottom: 12px;
+}
+
+.config-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--text-color);
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.config-group input,
+.config-group select {
+    width: 100%;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    font-size: 12px;
+    font-family: inherit;
+}
+
+.config-group input:focus,
+.config-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.2);
+}
+
+.config-group input:invalid {
+    border-color: var(--error-color);
+}
+
+.config-group input:valid {
+    border-color: var(--success-color);
+}
+
+/* Context Sections */
+.context-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.context-section h3 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    border-bottom: 1px solid var(--border-hover);
+    padding-bottom: 5px;
+}
+
+.context-item {
+    margin-bottom: 10px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.context-label {
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: 5px;
+}
+
+.context-value {
+    color: var(--primary-color);
+    font-family: 'Courier New', monospace;
+}
+
+.context-value.missing {
+    color: var(--error-color);
+    font-style: italic;
+}
+
+.context-value.complete {
+    color: var(--success-color);
+}
+
+/* Input with Unit */
+.input-with-unit {
+    display: flex;
+    align-items: center;
+}
+
+.input-with-unit input {
+    flex: 1;
+    margin-right: 8px;
+}
+
+.input-with-unit .unit {
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* Boundary Conditions */
+.boundary-condition-item {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.bc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.bc-header h4 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 14px;
+}
+
+.remove-bc-btn {
+    background: var(--error-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.remove-bc-btn:hover {
+    background: #c82333;
+}
+
+.add-bc-btn {
+    background: var(--success-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+}
+
+.add-bc-btn:hover {
+    background: #218838;
+}
+
+/* Buttons */
+.btn {
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    margin: 2px;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    background: #0056b3;
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: var(--text-muted);
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: var(--background-color);
+}
+
+.btn-primary:hover {
+    background: #00cc00;
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--secondary-color);
+    border: 2px solid var(--secondary-color);
+}
+
+.btn-outline:hover {
+    background: var(--secondary-color);
+    color: white;
+}
+
+/* Status Indicators */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    margin: 5px 0;
+}
+
+.status-indicator.success {
+    background: rgba(40, 167, 69, 0.2);
+    color: var(--success-color);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.status-indicator.error {
+    background: rgba(220, 53, 69, 0.2);
+    color: var(--error-color);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.status-indicator.warning {
+    background: rgba(255, 193, 7, 0.2);
+    color: var(--warning-color);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.status-indicator.info {
+    background: rgba(23, 162, 184, 0.2);
+    color: var(--info-color);
+    border: 1px solid rgba(23, 162, 184, 0.3);
+}
+
+.status-icon {
+    margin-right: 5px;
+}
+
+/* Loading States */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--text-muted);
+}
+
+.loading::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color);
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Error States */
+.error {
+    color: var(--error-color);
+    background: rgba(220, 53, 69, 0.1);
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    margin: 10px 0;
+}
+
+/* Success States */
+.success {
+    color: var(--success-color);
+    background: rgba(40, 167, 69, 0.1);
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    margin: 10px 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .terminal-container {
+        flex-direction: column;
+    }
+    
+    .left-panel,
+    .right-panel {
+        width: 100%;
+        height: auto;
+    }
+    
+    .center-panel {
+        height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .left-panel,
+    .right-panel,
+    .center-panel {
+        padding: 10px;
+    }
+    
+    .config-section {
+        padding: 10px;
+    }
+    
+    .context-section {
+        padding: 10px;
+    }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-hover);
+}
+
+/* Animation Classes */
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
+.visible {
+    display: block !important;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.mt-10 {
+    margin-top: 10px;
+}
+
+.mb-10 {
+    margin-bottom: 10px;
+}
+
+.ml-10 {
+    margin-left: 10px;
+}
+
+.mr-10 {
+    margin-right: 10px;
+}
+
+.p-10 {
+    padding: 10px;
+}
+
+.p-20 {
+    padding: 20px;
+}

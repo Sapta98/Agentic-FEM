@@ -1,0 +1,357 @@
+/* Visualization-specific CSS */
+
+/* Mesh Visualization Styles */
+.mesh-visualization {
+    width: 100%;
+    height: 500px;
+    border: 2px solid var(--success-color);
+    border-radius: 8px;
+    background: var(--surface-color);
+}
+
+.mesh-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.mesh-info .mesh-type,
+.mesh-info .mesh-dimension {
+    background: rgba(0, 255, 0, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+/* Field Visualization Styles */
+.field-visualization {
+    width: 100%;
+    height: 500px;
+    border: 2px solid var(--secondary-color);
+    border-radius: 8px;
+    background: var(--surface-color);
+}
+
+.field-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.field-info .field-name,
+.field-info .field-units {
+    background: rgba(0, 123, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 123, 255, 0.3);
+}
+
+/* Visualization Container */
+.visualization-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.visualization-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+    background: var(--surface-color);
+}
+
+/* Visualization Controls */
+.visualization-controls {
+    margin-top: 10px;
+    text-align: center;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.visualization-controls .btn {
+    flex: 1;
+    max-width: 150px;
+}
+
+/* Results Display */
+.results-header {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.results-header h2 {
+    margin: 0 0 10px 0;
+    color: var(--primary-color);
+    font-size: 18px;
+}
+
+.timestamp {
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+/* Results Summary */
+.results-summary {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.results-summary h3 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    border-bottom: 1px solid var(--border-hover);
+    padding-bottom: 5px;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.summary-label {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.summary-value {
+    color: var(--primary-color);
+    font-family: 'Courier New', monospace;
+}
+
+/* Statistics Display */
+.mesh-statistics,
+.field-statistics {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.mesh-statistics h3,
+.field-statistics h3 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    border-bottom: 1px solid var(--border-hover);
+    padding-bottom: 5px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    font-size: 12px;
+}
+
+.stat-label {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.stat-value {
+    color: var(--primary-color);
+    font-family: 'Courier New', monospace;
+}
+
+/* Solver Information */
+.solver-information {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.solver-information h3 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    border-bottom: 1px solid var(--border-hover);
+    padding-bottom: 5px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    font-size: 12px;
+}
+
+.info-label {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.info-value {
+    color: var(--primary-color);
+    font-family: 'Courier New', monospace;
+}
+
+/* Performance Metrics */
+.performance-metrics {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.performance-metrics h3 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    border-bottom: 1px solid var(--border-hover);
+    padding-bottom: 5px;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.metric-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    font-size: 12px;
+}
+
+.metric-label {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.metric-value {
+    color: var(--primary-color);
+    font-family: 'Courier New', monospace;
+}
+
+/* Export Options */
+.export-options {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.export-options h3 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    border-bottom: 1px solid var(--border-hover);
+    padding-bottom: 5px;
+}
+
+.export-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.export-buttons .btn {
+    flex: 1;
+    min-width: 120px;
+    max-width: 150px;
+}
+
+
+/* Loading and Error States for Visualizations */
+.visualization-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 500px;
+    color: var(--text-muted);
+    font-size: 16px;
+}
+
+.visualization-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 500px;
+    color: var(--error-color);
+    font-size: 16px;
+    text-align: center;
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: 8px;
+}
+
+/* Responsive Visualizations */
+@media (max-width: 768px) {
+    .mesh-visualization,
+    .field-visualization,
+    
+    .summary-grid,
+    .stats-grid,
+    .info-grid,
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .visualization-controls {
+        flex-direction: column;
+    }
+    
+    .visualization-controls .btn {
+        max-width: none;
+    }
+    
+    .export-buttons {
+        flex-direction: column;
+    }
+    
+    .export-buttons .btn {
+        max-width: none;
+    }
+}

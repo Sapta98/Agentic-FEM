@@ -1,0 +1,2515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic FEM - Terminal Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000000;
+            color: #00ff00;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-areas: 
+                "prompt prompt prompt"
+                "left center right";
+            grid-template-rows: 100px calc(100vh - 110px);
+            grid-template-columns: 200px 1fr 300px;
+            height: 100vh;
+            gap: 2px;
+            padding: 3px;
+        }
+        
+        .prompt-section {
+            grid-area: prompt;
+            background-color: #001100;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            overflow: visible;
+            min-height: 100px;
+            height: 100px;
+        }
+        
+        .prompt-input {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .prompt-label {
+            color: #00ff00;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        #prompt {
+            flex: 1;
+            background-color: #000000;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            border-radius: 3px;
+        }
+        
+        #prompt:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 5px #00ff88;
+        }
+        
+        .submit-btn {
+            background-color: #003300;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 8px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+        
+        .submit-btn:hover {
+            background-color: #00ff00;
+            color: #000000;
+        }
+        
+        .submit-btn:disabled {
+            background-color: #001100;
+            color: #006600;
+            cursor: not-allowed;
+        }
+        
+        .clear-btn {
+            background-color: #330000;
+            color: #ff6666;
+            border: 1px solid #ff6666;
+            padding: 8px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+            margin-left: 10px;
+        }
+        
+        .clear-btn:hover {
+            background-color: #ff6666;
+            color: #000000;
+        }
+        
+        .solve-btn {
+            background-color: #003366;
+            color: #66ccff;
+            border: 1px solid #66ccff;
+            padding: 8px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .solve-btn:hover {
+            background-color: #66ccff;
+            color: #000000;
+        }
+        
+        .fill-context-btn {
+            background-color: #663300;
+            color: #ffcc66;
+            border: 1px solid #ffcc66;
+            padding: 8px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .fill-context-btn:hover {
+            background-color: #ffcc66;
+            color: #000000;
+        }
+        
+        
+        .examples {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            background-color: rgba(0, 255, 0, 0.1);
+            padding: 5px;
+            border-radius: 3px;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+        }
+        
+        .examples-label {
+            color: #00ff88;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        
+        .example-btn {
+            background-color: #003300;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 6px 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        
+        .example-btn:hover {
+            background-color: #00ff00;
+            color: #000000;
+        }
+        
+        .left-panel {
+            grid-area: left;
+            background-color: #001100;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        .center-panel {
+            grid-area: center;
+            background-color: #000000;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+        
+        #centerContent {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        .right-panel {
+            grid-area: right;
+            background-color: #001100;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        .panel-title {
+            color: #00ff88;
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #00ff00;
+            padding-bottom: 5px;
+        }
+        
+        .current-prompt {
+            background-color: #002200;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .equations {
+            margin-bottom: 20px;
+        }
+        
+        .equation {
+            background-color: #000000;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .material-properties, .geometry-details, .mesh-details, .boundary-conditions {
+            margin-bottom: 20px;
+            border: 1px solid #004400;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #000800;
+        }
+        
+        .context-section {
+            margin-bottom: 20px;
+            border: 1px solid #004400;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #000800;
+        }
+        
+        .context-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .context-item.missing {
+            background-color: #330000;
+            border: 1px solid #ff6666;
+        }
+        
+        .context-item:not(.missing) {
+            background-color: #003300;
+            border: 1px solid #00ff00;
+        }
+        
+        .context-key {
+            color: #00ff88;
+            font-weight: bold;
+            min-width: 120px;
+            font-size: 12px;
+        }
+        
+        .context-value {
+            flex: 1;
+            font-size: 12px;
+        }
+        
+        .boundary-condition-item {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .boundary-location {
+            margin-bottom: 5px;
+        }
+        
+        .boundary-controls {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        
+        .boundary-controls select,
+        .boundary-controls input {
+            flex: 1;
+        }
+        
+        .btn-remove {
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            min-width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .btn-remove:hover {
+            background: #ff6666;
+        }
+        
+        .context-value.complete {
+            color: #00ff00;
+        }
+        
+        .context-value.missing {
+            color: #ff6666;
+        }
+        
+        .config-input {
+            background-color: #001100;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 4px 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            border-radius: 3px;
+            min-width: 100px;
+        }
+        
+        .config-input:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 3px #00ff88;
+        }
+        
+        .config-input::placeholder {
+            color: #666666;
+        }
+        
+        
+        
+        .property-item, .detail-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 5px;
+            background-color: #002200;
+            border-radius: 3px;
+        }
+        
+        .property-key, .detail-key {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        .property-value, .detail-value {
+            color: #00ff00;
+        }
+        
+        .visualization-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #000000;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            overflow: hidden;
+            min-height: 0;
+        }
+        
+        .visualization-header {
+            background-color: #002200;
+            padding: 5px;
+            border-bottom: 1px solid #00ff00;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .visualization-title {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        .visualization-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            background-color: #003300;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 5px 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+        
+        .control-btn:hover {
+            background-color: #00ff00;
+            color: #000000;
+        }
+        
+        .visualization-iframe {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: #000000;
+            overflow: hidden;
+            min-height: 0;
+        }
+        
+        .visualization-placeholder {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #000000;
+            border: 2px dashed #00ff00;
+            border-radius: 5px;
+            margin: 10px;
+        }
+        
+        .placeholder-content {
+            text-align: center;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .placeholder-content h3 {
+            color: #00ff88;
+            margin-bottom: 15px;
+        }
+        
+        .placeholder-content p {
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }
+        
+        .placeholder-examples {
+            margin-top: 20px;
+            font-size: 0.9em;
+            opacity: 0.7;
+        }
+        
+        .placeholder-examples ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .placeholder-examples li {
+            margin: 5px 0;
+            padding: 3px 0;
+            border-bottom: 1px solid #003300;
+        }
+        
+        .status {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .status.success {
+            background-color: #002200;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+        }
+        
+        .status.error {
+            background-color: #220000;
+            border: 1px solid #ff0000;
+            color: #ff0000;
+        }
+        
+        .status.info {
+            background-color: #002222;
+            border: 1px solid #00ffff;
+            color: #00ffff;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #003300;
+            border-top: 2px solid #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #001100;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Top: Prompt Section -->
+        <div class="prompt-section">
+            <div class="prompt-input">
+                <span class="prompt-label">PHYSICS_PROMPT> </span>
+                <input type="text" id="prompt" placeholder="Enter physics simulation prompt...">
+                <button class="submit-btn" id="submitBtn" onclick="simulate()">SUBMIT</button>
+                <button class="clear-btn" id="clearBtn" onclick="clearContext()">CLEAR CONTEXT</button>
+            </div>
+            <div class="examples">
+                <span class="examples-label">Examples:</span>
+                <button class="example-btn" onclick="useExample('heat transfer in copper wire, 1m long, diameter 60cm, 100°C at one end, 10°C at other end')">Heat Transfer</button>
+                <button class="example-btn" onclick="useExample('stress in steel beam, 2mx3mx1m, with 1000N load at one end and fixed on other end')">Solid Mechanics</button>
+            </div>
+        </div>
+        
+        <!-- Left: Current Prompt & Equations -->
+        <div class="left-panel">
+            <div class="panel-title">Current Prompt & Equations</div>
+            <div id="leftContent">
+                <div class="status info">
+                    Ready for physics simulation input...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Center: 3D Mesh Visualization -->
+        <div class="center-panel">
+            <div class="panel-title"> 3D Mesh Visualization</div>
+            <div id="centerContent">
+                <div class="visualization-container">
+                    <div class="visualization-header">
+                        <span class="visualization-title">ParaView Web Visualization</span>
+                        <div class="visualization-controls hidden" id="vizControls">
+                            <button class="control-btn" onclick="openFullScreen()">Full Screen</button>
+                            <button class="control-btn" onclick="toggleSize()">Toggle Size</button>
+                        </div>
+                    </div>
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #006600;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 20px;">3D</div>
+                            <div>3D Mesh visualization will appear here</div>
+                            <div style="font-size: 12px; margin-top: 10px; color: #004400;">Submit a physics prompt to generate mesh</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right: Material Properties & Geometry -->
+        <div class="right-panel">
+            <div class="panel-title"> Properties & Geometry</div>
+            <div id="rightContent">
+                <div class="status info">
+                    Material properties, geometry details, and mesh parameters will be displayed here...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MathJax for equation rendering -->
+    <!-- No external dependencies needed -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    
+    <script>
+        let currentVisualizationUrl = null;
+        
+        function useExample(prompt) {
+            document.getElementById('prompt').value = prompt;
+        }
+        
+        async function simulate() {
+            const prompt = document.getElementById('prompt').value.trim();
+            const submitBtn = document.getElementById('submitBtn');
+            
+            if (!prompt) {
+                showStatus('error', 'Please enter a physics simulation prompt');
+                return;
+            }
+            
+            // Show loading state
+            submitBtn.textContent = 'PROCESSING...';
+            submitBtn.disabled = true;
+            
+            // Clear previous results
+            clearResults();
+            showLoading();
+            
+            try {
+                const response = await fetch('/simulation/parse', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        context: {}
+                    })
+                });
+                
+                const data = await response.json();
+                displayResults(data, prompt);
+                
+            // Store the simulation data for later PDE solving
+            window.currentSimulationData = data;
+            
+            // Debug: Log the full context structure
+            console.log('Full context structure:', data.context);
+            console.log('Boundary conditions in context:', data.context?.boundary_conditions);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('error', 'Error processing request: ' + error.message);
+            } finally {
+                submitBtn.textContent = 'SUBMIT';
+                submitBtn.disabled = false;
+            }
+        }
+        
+        async function solvePDE() {
+            const solveBtn = document.getElementById('solveBtn');
+            
+            if (!window.currentSimulationData) {
+                showStatus('error', 'No simulation data available. Please submit a prompt first.');
+                return;
+            }
+            
+            // Show loading state
+            solveBtn.textContent = 'SOLVING...';
+            solveBtn.disabled = true;
+            
+            try {
+                const requestData = {
+                    prompt: document.getElementById('prompt').value,
+                    context: window.currentContext  // Use the filled context
+                };
+                
+                // Debug: Check what context we have
+                console.log('Current context being sent:', window.currentContext);
+                
+                console.log('=== SOLVE PDE REQUEST ===');
+                console.log('Request data:', requestData);
+                console.log('Current context:', window.currentContext);
+                // Mesh data is now handled by the FEniCS solver backend
+                
+                const response = await fetch('/simulation/solve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.json();
+                
+                // If PDE was solved, show mesh visualization with field data
+                console.log('=== PDE SOLVE RESPONSE DEBUG ===');
+                console.log('Full response:', data);
+                console.log('Field visualization URL:', data.field_visualization_url);
+                console.log('Mesh visualization URL:', data.mesh_visualization_url);
+                console.log('Response keys:', Object.keys(data));
+                console.log('Success:', data.success);
+                console.log('Action:', data.action);
+                console.log('Message:', data.message);
+                
+                if (data.field_visualization_url) {
+                    console.log('Displaying field visualization:', data.field_visualization_url);
+                    displayFieldVisualization(data.field_visualization_url);
+                    showStatus('success', 'PDE solved successfully! Field visualization loaded.');
+                } else if (data.mesh_visualization_url) {
+                    console.log('Displaying mesh visualization:', data.mesh_visualization_url);
+                    displayMeshVisualization(data.mesh_visualization_url);
+                    showStatus('success', 'PDE solved successfully! Mesh visualization loaded.');
+                } else {
+                    showStatus('info', 'PDE solving completed. Check the visualization area.');
+                }
+                
+                // IMPORTANT: Do NOT process any other data from the response
+                // The response contains simulation_config which would trigger displayResults
+                // We only want to update the field visualization, nothing else
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('error', 'Error solving PDE: ' + error.message);
+            } finally {
+                solveBtn.textContent = 'SOLVE PDE';
+                solveBtn.disabled = false;
+            }
+        }
+        
+        async function clearContext() {
+            // Clear the prompt input
+            document.getElementById('prompt').value = '';
+            
+            // Clear all global variables
+            window.currentContext = {};
+            window.currentSimulationData = null;
+            window.currentVisualizationUrl = null;
+            
+            // Clear all results and visualizations
+            clearResults();
+            
+            // Clear mesh preview and field visualization
+            clearAllVisualizations();
+            
+            // Clear backend context
+            try {
+                const response = await fetch('/clear-context', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    let cleanupInfo = '';
+                    if (data.cleanup_counts) {
+                        cleanupInfo += ` (Cleaned ${data.cleanup_counts.total_cleaned} static files)`;
+                    }
+                    if (data.simulation_cleanup) {
+                        const sim = data.simulation_cleanup;
+                        if (sim.gmsh_models_cleared > 0) {
+                            cleanupInfo += ` (Cleared ${sim.gmsh_models_cleared} GMSH models)`;
+                        }
+                        if (sim.visualizer_cache_cleared) {
+                            cleanupInfo += ' (Cleared cached mesh data)';
+                        }
+                    }
+                    showStatus('success', 'All context cleared successfully. Ready for new simulation.' + cleanupInfo);
+                } else {
+                    showStatus('error', 'Error clearing context: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error clearing context:', error);
+                showStatus('error', 'Error clearing context: ' + error.message);
+            }
+            
+            console.log('Context cleared - ready for new simulation');
+        }
+        
+        function clearAllVisualizations() {
+            // Clear mesh container and iframe
+            const centerContent = document.getElementById('centerContent');
+            const meshContainer = document.getElementById('meshContainer');
+            
+            if (meshContainer) {
+                meshContainer.remove();
+            }
+            
+            // Reset center content to initial placeholder
+                centerContent.innerHTML = `
+                <div class="visualization-container">
+                    <div class="visualization-header">
+                        <div class="visualization-controls hidden" id="vizControls">
+                            <button class="control-btn" onclick="openFullScreen()">Full Screen</button>
+                            <button class="control-btn" onclick="toggleSize()">Toggle Size</button>
+                        </div>
+                    </div>
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #006600;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 20px;">3D</div>
+                            <div>3D Mesh visualization will appear here</div>
+                            <div style="font-size: 12px; margin-top: 10px; color: #004400;">Submit a physics prompt to generate mesh</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        
+        function clearResults() {
+            // Clear left and right panels
+            document.getElementById('leftContent').innerHTML = '';
+            document.getElementById('rightContent').innerHTML = '';
+            
+            // Show initial status messages
+            document.getElementById('leftContent').innerHTML = `
+                <div class="status info">
+                    Ready for physics simulation input...
+                </div>
+            `;
+            
+            document.getElementById('rightContent').innerHTML = `
+                <div class="status info">
+                    Material properties, geometry details, and mesh parameters will be displayed here...
+                </div>
+            `;
+        }
+        
+        function showLoading() {
+            document.getElementById('leftContent').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Processing physics prompt...</span>
+                </div>
+            `;
+            
+            document.getElementById('rightContent').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Generating configuration...</span>
+                </div>
+            `;
+        }
+        
+        function showStatus(type, message) {
+            // Show status in a dedicated status area, not in left panel
+            let statusDiv = document.getElementById('statusMessage');
+            if (!statusDiv) {
+                // Create status div if it doesn't exist
+                statusDiv = document.createElement('div');
+                statusDiv.id = 'statusMessage';
+                statusDiv.style.cssText = `
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    padding: 10px 15px;
+                    border-radius: 5px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 14px;
+                    z-index: 1000;
+                    max-width: 300px;
+                    word-wrap: break-word;
+                `;
+                document.body.appendChild(statusDiv);
+            }
+            
+            // Set status message with appropriate colors
+            const colors = {
+                'success': 'background-color: #003300; color: #00ff00; border: 1px solid #00ff00;',
+                'error': 'background-color: #330000; color: #ff6666; border: 1px solid #ff6666;',
+                'info': 'background-color: #000033; color: #6666ff; border: 1px solid #6666ff;',
+                'warning': 'background-color: #333300; color: #ffff00; border: 1px solid #ffff00;'
+            };
+            
+            statusDiv.style.cssText += colors[type] || colors['info'];
+            statusDiv.textContent = message;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                if (statusDiv && statusDiv.parentNode) {
+                    statusDiv.parentNode.removeChild(statusDiv);
+                }
+            }, 5000);
+        }
+        
+        function displayResults(data, prompt) {
+            if (data.success) {
+                // Store the current context for editing
+                currentContext = data.context || {};
+                console.log('Stored simulation context:', currentContext);
+                
+                // Left panel: Current prompt and equations
+                displayLeftPanel(data, prompt);
+                
+                // Right panel: Material properties and geometry
+                displayRightPanel(data);
+                
+                // Center panel: 3D visualization - ONLY if we have a full simulation visualization
+                if (data.mesh_visualization_url) {
+                    displayMeshVisualization(data.mesh_visualization_url);
+                } else if (data.context && data.context.geometry_type && data.context.geometry_dimensions) {
+                    // If we have enough geometry info but no full simulation, generate mesh preview
+                    // But DON'T clear the existing mesh container - just update it
+                    generateMeshPreviewInCenter();
+                }
+                // If no geometry info, don't touch the center panel - keep existing content
+            } else {
+                showStatus('error', data.message || 'Simulation failed');
+            }
+        }
+        
+        // Check if context is complete enough to run simulation
+        function checkContextCompleteness(context) {
+            if (!context) return false;
+            
+            console.log('=== CONTEXT COMPLETENESS CHECK ===');
+            console.log('Context:', context);
+            
+            // Required fields for simulation
+            const requiredFields = [
+                'physics_type',
+                'material_type', 
+                'geometry_type',
+                'geometry_dimensions',
+                'boundary_conditions'
+            ];
+            
+            // Check if all required fields exist and have values
+            for (const field of requiredFields) {
+                const fieldValue = context[field];
+                let isEmpty = false;
+                
+                if (field === 'geometry_dimensions') {
+                    // Special handling for geometry_dimensions - check if it has required dimensions
+                    if (!fieldValue || typeof fieldValue !== 'object') {
+                        isEmpty = true;
+                    } else {
+                        // Check if it has the required dimensions for the geometry type
+                        const requiredDims = getRequiredDimensionsForGeometry(context.geometry_type || '');
+                        const hasRequiredDims = requiredDims.every(dim => 
+                            fieldValue[dim] && fieldValue[dim] !== '' && fieldValue[dim] !== null
+                        );
+                        isEmpty = !hasRequiredDims;
+                    }
+                } else {
+                    // Standard check for other fields
+                    isEmpty = !fieldValue || 
+                        (typeof fieldValue === 'object' && Object.keys(fieldValue).length === 0);
+                }
+                
+                console.log(`Field '${field}':`, fieldValue, 'Empty:', isEmpty);
+                
+                if (isEmpty) {
+                    console.log(`❌ Context incomplete: missing or empty field '${field}'`);
+                        return false;
+                }
+            }
+            
+            console.log('✅ Context is complete');
+            return true;
+        }
+        
+        // Fill in missing context with defaults (respecting existing user input)
+        async function fillInContext() {
+            const fillBtn = document.getElementById('fillContextBtn');
+            
+            // Show loading state
+            fillBtn.textContent = 'FILLING...';
+            fillBtn.disabled = true;
+            
+            try {
+                // Get current context
+                const currentContext = window.currentContext || {};
+                console.log('=== FILL IN CONTEXT DEBUG ===');
+                console.log('Current context before filling:', currentContext);
+                
+                // Fill in missing fields with defaults (only if not already present)
+                const filledContext = { ...currentContext };
+                const filledFields = [];
+                
+                // Set default physics type if missing
+                if (!filledContext.physics_type) {
+                    filledContext.physics_type = 'heat_transfer';
+                    filledFields.push('physics type');
+                }
+                
+                // Set default material if missing
+                if (!filledContext.material_type) {
+                    filledContext.material_type = 'copper';
+                    filledFields.push('material');
+                }
+                
+                // Set default geometry if missing
+                console.log('Checking geometry_type:', filledContext.geometry_type);
+                if (!filledContext.geometry_type || filledContext.geometry_type === '') {
+                    console.log('Setting default geometry to rectangle');
+                    filledContext.geometry_type = 'rectangle';
+                    filledFields.push('geometry type');
+                } else {
+                    console.log('Geometry type already set:', filledContext.geometry_type);
+                }
+                
+                // Set default dimensions if missing or incomplete
+                if (!filledContext.geometry_dimensions || Object.keys(filledContext.geometry_dimensions).length === 0) {
+                    const defaultDims = getDefaultDimensionsForGeometry(filledContext.geometry_type);
+                    filledContext.geometry_dimensions = defaultDims;
+                    filledFields.push('dimensions');
+                } else {
+                    // Check if dimensions are incomplete for the geometry type
+                    const requiredDims = getRequiredDimensionsForGeometry(filledContext.geometry_type);
+                    const missingDims = requiredDims.filter(dim => 
+                        !filledContext.geometry_dimensions[dim] || 
+                        filledContext.geometry_dimensions[dim] === ''
+                    );
+                    
+                    if (missingDims.length > 0) {
+                        const defaultDims = getDefaultDimensionsForGeometry(filledContext.geometry_type);
+                        // Only fill missing dimensions, keep existing ones
+                        for (const dim of missingDims) {
+                            filledContext.geometry_dimensions[dim] = defaultDims[dim];
+                        }
+                        filledFields.push(`missing dimensions: ${missingDims.join(', ')}`);
+                    }
+                }
+                
+                // Set default boundary conditions if missing
+                if (!filledContext.boundary_conditions || filledContext.boundary_conditions.length === 0) {
+                    filledContext.boundary_conditions = [
+                        {
+                            type: 'temperature',
+                            location: 'one side',
+                            value: 100,
+                            confidence: 0.9
+                        },
+                        {
+                            type: 'temperature', 
+                            location: 'opposite side',
+                            value: 10,
+                            confidence: 0.9
+                        }
+                    ];
+                    filledFields.push('boundary conditions');
+                }
+                
+                // Update the global context
+                window.currentContext = filledContext;
+                console.log('Updated context:', window.currentContext);
+                
+                // Refresh the right panel to show updated context
+                refreshRightPanel();
+                
+                // Show success message with details of what was filled
+                const filledMessage = filledFields.length > 0 
+                    ? `Context filled: ${filledFields.join(', ')}. You can now solve the PDE or modify the values.`
+                    : 'Context was already complete. You can now solve the PDE.';
+                showStatus('success', filledMessage);
+                
+                // Update the button to "Solve PDE" since context is now complete
+                const fillBtn = document.getElementById('fillContextBtn');
+                if (fillBtn) {
+                    fillBtn.outerHTML = '<button class="solve-btn" id="solveBtn" onclick="solvePDE()">SOLVE PDE</button>';
+                }
+                
+            } catch (error) {
+                console.error('Error filling context:', error);
+                showStatus('error', 'Error filling context: ' + error.message);
+                
+                // Reset button
+                fillBtn.textContent = 'FILL IN CONTEXT';
+                fillBtn.disabled = false;
+            }
+        }
+        
+        // Get required dimensions for a geometry type
+        function getRequiredDimensionsForGeometry(geometryType) {
+            const dimensionMapping = {
+                'line': ['length'],
+                'rod': ['length'],
+                'bar': ['length'],
+                'rectangle': ['length', 'width'],
+                'plate': ['length', 'width', 'thickness'],
+                'membrane': ['length', 'width'],
+                'square': ['length'],
+                'disc': ['radius'],
+                'cube': ['length'],
+                'box': ['length', 'width', 'height'],
+                'cylinder': ['radius', 'length'],
+                'sphere': ['radius'],
+                'beam': ['length', 'width', 'height']
+            };
+            
+            return dimensionMapping[geometryType] || ['length'];
+        }
+
+        function displayLeftPanel(data, prompt) {
+            let html = `
+                <div class="current-prompt">
+                    <strong style="color: #00ff88;">CURRENT PROMPT:</strong><br>
+                    ${prompt}
+                </div>
+            `;
+            
+            if (data.simulation_config && data.simulation_config.pde_config) {
+                const pde = data.simulation_config.pde_config;
+                
+                if (pde.equations && pde.equations.length > 0) {
+                    html += '<div class="equations">';
+                    html += '<div style="color: #00ff88; margin-bottom: 10px; font-weight: bold;">GOVERNING EQUATIONS:</div>';
+                    
+                    pde.equations.forEach((eq, index) => {
+                        html += `<div class="equation">$$${eq}$$</div>`;
+                    });
+                    
+                    html += '</div>';
+                }
+            }
+            
+            // Add appropriate button based on context completeness (always show buttons)
+            const isContextComplete = checkContextCompleteness(data.context);
+            console.log('Context completeness check:', isContextComplete, 'Context:', data.context);
+            
+            if (isContextComplete) {
+                html += '<button class="solve-btn" id="solveBtn" onclick="solvePDE()">SOLVE PDE</button>';
+            } else {
+                // Always show "Fill in Context" button after prompt submission
+                // This allows users to fill in any missing context regardless of how much was parsed
+                html += '<button class="fill-context-btn" id="fillContextBtn" onclick="fillInContext()">FILL IN CONTEXT</button>';
+            }
+            
+            document.getElementById('leftContent').innerHTML = html;
+            
+            // Re-render MathJax
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        }
+        
+        function displayRightPanel(data) {
+            let html = '';
+            
+            // Show context information and missing fields
+            if (data.context) {
+                html += '<div class="context-section">';
+                html += '<div style="color: #00ff88; margin-bottom: 10px; font-weight: bold;">SIMULATION CONTEXT:</div>';
+                
+                // Physics Type
+                if (data.context.physics_type) {
+                    html += `
+                        <div class="context-item">
+                            <span class="context-key">Physics Type:</span>
+                            <span class="context-value complete">${data.context.physics_type.replace('_', ' ').toUpperCase()}</span>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="context-item missing">
+                            <span class="context-key">Physics Type:</span>
+                            <span class="context-value">MISSING - Specify physics simulation type</span>
+                        </div>
+                    `;
+                }
+                
+                // Material Type
+                html += `
+                    <div class="context-item">
+                        <span class="context-key">Material:</span>
+                        <input type="text" class="config-input" value="${data.context.material_type || ''}" placeholder="e.g., steel, aluminum" onchange="updateConfig('material_type', this.value)">
+                    </div>
+                `;
+                
+                // Geometry Type
+                html += `
+                    <div class="context-item">
+                        <span class="context-key">Geometry:</span>
+                        <input id="geometryTypeInput" type="text" class="config-input" value="${data.context.geometry_type || ''}" placeholder="e.g., beam, plate, cylinder" onchange="(updateConfig('geometry_type', this.value), classifyAndSetGeometry(this.value))">
+                    </div>
+                `;
+                
+                // Dimensions - Dynamic based on geometry type
+                html += '<div class="dimensions-section">';
+                html += '<div style="color: #00ff88; margin: 10px 0 5px 0; font-weight: bold;">DIMENSIONS:</div>';
+                
+                const geometryType = data.context.geometry_type || 'beam';
+                const currentDimensions = data.context.geometry_dimensions || {};
+                
+                // Define dimension fields based on geometry type
+                // Async render from dimension spec
+                html += '<div id="dynamic-dimensions"></div>';
+                
+                html += '</div>';
+                
+                // Boundary Conditions
+                html += '<div class="boundary-conditions-section">';
+                html += '<div style="color: #00ff88; margin: 10px 0 5px 0; font-weight: bold;">BOUNDARY CONDITIONS:</div>';
+                
+                // Debug: Log boundary conditions structure
+                console.log('Boundary conditions debug:', data.context.boundary_conditions);
+                console.log('Type:', typeof data.context.boundary_conditions);
+                console.log('Is array:', Array.isArray(data.context.boundary_conditions));
+                
+                // Use normalized BCs from PDE config if available
+                if (data.simulation_config && data.simulation_config.pde_config && Array.isArray(data.simulation_config.pde_config.boundary_conditions)) {
+                    data.context.boundary_conditions = data.simulation_config.pde_config.boundary_conditions;
+                }
+                
+                if (data.context.boundary_conditions && data.context.boundary_conditions.length > 0) {
+                    data.context.boundary_conditions.forEach((bc, index) => {
+                        // Get the actual boundary location from the mapped location
+                        const boundaryLocation = bc.location || bc.mapped_location || 'unknown';
+                        
+                        html += `
+                            <div class="context-item boundary-condition-item">
+                                <div class="boundary-location">
+                                    <span class="context-key">${boundaryLocation.toUpperCase()}:</span>
+                                </div>
+                                <div class="boundary-controls">
+                                    ${generateBoundaryConditionSelect(bc, index, data.context.physics_type)}
+                                    <input type="text" class="config-input" 
+                                           value="${bc.value || ''}" 
+                                           placeholder="Value (e.g., 10kN, 100°C)"
+                                           onchange="updateBoundaryConditionValue(${index}, this.value)">
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `
+                        <div class="context-item">
+                            <span class="context-key">Boundary Conditions:</span>
+                            <input type="text" class="config-input" placeholder="e.g., fixed at one end, 100°C at top" onchange="updateConfig('boundary_conditions', this.value)">
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                
+                html += '</div>';
+            }
+            
+            // Material Properties - Dynamic and editable
+            html += '<div class="material-properties">';
+            html += '<div style="color: #00ff88; margin-bottom: 10px; font-weight: bold;">MATERIAL PROPERTIES:</div>';
+            
+            const materialType = (data.context && data.context.material_type) || 'steel';
+            const physicsType = (data.context && data.context.physics_type) || 'solid_mechanics';
+            const currentProperties = (data.context && data.context.material_properties) || {};
+            
+            // Define material property fields based on physics type
+            const materialFields = getMaterialFieldsForMaterial(materialType, physicsType);
+            
+            materialFields.forEach(field => {
+                let currentValue = currentProperties[field.name] || field.defaultValue || '';
+                
+                // Parse value from NLP parser format (e.g., "400 W/(m·K)" -> "400")
+                if (typeof currentValue === 'string' && currentValue.includes(' ')) {
+                    currentValue = currentValue.split(' ')[0];
+                }
+                
+                html += `
+                    <div class="context-item">
+                        <span class="context-key">${field.label}:</span>
+                        <input type="number" class="config-input" value="${currentValue}" step="${field.step || '0.01'}" placeholder="${field.placeholder}" onchange="updateConfig('material_properties.${field.name}', this.value)">
+                        <span style="color: #888888; font-size: 10px;">${field.unit}</span>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            // Note: Mesh preview is now handled in the center panel when enough geometry info is available
+            
+            if (data.simulation_config && data.simulation_config.pde_config) {
+                const pde = data.simulation_config.pde_config;
+                
+                // Mesh Details
+                if (pde.mesh_parameters) {
+                    html += '<div class="mesh-details">';
+                    html += '<div style="color: #00ff88; margin-bottom: 10px; font-weight: bold;">MESH DETAILS:</div>';
+                    
+                    html += `
+                        <div class="detail-item">
+                            <span class="detail-key">RESOLUTION:</span>
+                            <span class="detail-value">${pde.mesh_parameters.resolution || '50'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-key">ELEMENT TYPE:</span>
+                            <span class="detail-value">${pde.mesh_parameters.element_type || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-key">MESH TYPE:</span>
+                            <span class="detail-value">${pde.mesh_parameters.mesh_type || 'Unknown'}</span>
+                        </div>
+                    `;
+                    
+                    html += '</div>';
+                }
+                
+            }
+            
+            if (!html) {
+                html = '<div class="status info">No configuration data available</div>';
+            }
+            
+            document.getElementById('rightContent').innerHTML = html;
+
+            // After render, populate dynamic dimensions async
+            (async () => {
+                const container = document.getElementById('dynamic-dimensions');
+                if (!container) return;
+                const geomType = (currentContext && currentContext.geometry_type) ? currentContext.geometry_type : (typeof geometryType !== 'undefined' ? geometryType : 'beam');
+                const fields = await getDimensionFieldsForGeometry(geomType);
+                let dimHtml = '';
+                console.log('Dimensions spec fields for', geomType, fields);
+                const currentDimensions = currentContext.geometry_dimensions || {};
+                if (!fields || fields.length === 0) {
+                    // Fallback placeholders if spec lookup failed
+                    let fallback = [];
+                    switch ((geomType || '').toLowerCase()) {
+                        case 'line': fallback = ['length']; break;
+                        case 'cylinder': fallback = ['radius','length']; break;
+                        case 'cube': fallback = ['length']; break;
+                        case 'box': fallback = ['length','width','height']; break;
+                        case 'sphere': fallback = ['radius']; break;
+                        case 'beam': fallback = ['length','width','height']; break;
+                        default: fallback = ['length'];
+                    }
+                    dimHtml += `<div class=\"status info\">Using fallback dimension placeholders for ${geomType}</div>`;
+                    fallback.forEach(name => {
+                        const currentValue = currentDimensions[name] || '';
+                        const label = name.charAt(0).toUpperCase() + name.slice(1);
+                        dimHtml += `
+                            <div class="context-item">
+                                <span class="context-key">${label}:</span>
+                                <input type="text" class="config-input" value="${currentValue}" placeholder="e.g., 1.0 (or 10cm)" onchange="updateConfig('geometry_dimensions.${name}', this.value)">
+                            </div>
+                        `;
+                    });
+                } else {
+                    fields.forEach(field => {
+                        const currentValue = currentDimensions[field.name] || '';
+                        dimHtml += `
+                            <div class="context-item">
+                                <span class="context-key">${field.label}:</span>
+                                <input type="text" class="config-input" value="${currentValue}" placeholder="${field.placeholder} (e.g., 1m or 10cm)" onchange="updateConfig('geometry_dimensions.${field.name}', this.value)">
+                            </div>
+                        `;
+                    });
+                }
+                container.innerHTML = dimHtml;
+            })();
+        }
+        
+        function displayVisualization(url) {
+            // This function is deprecated - use displayMeshVisualization instead
+            console.log('⚠️ displayVisualization is deprecated, redirecting to displayMeshVisualization');
+            displayMeshVisualization(url);
+        }
+        
+        // Global variable to store current context
+        let currentContext = {};
+        
+        // Cache for dimensions spec
+        let DIM_SPEC = null;
+        async function loadDimensionsSpec() {
+            if (DIM_SPEC) return DIM_SPEC;
+            try {
+                const res = await fetch('/config/dimensions-spec');
+                if (!res.ok) throw new Error('Failed to load dimensions spec');
+                DIM_SPEC = await res.json();
+                return DIM_SPEC;
+            } catch (e) {
+                console.warn('Failed to fetch dimensions spec:', e);
+                return null;
+            }
+        }
+
+        // Helper: map geometry type to its dimension group (1D/2D/3D)
+        function findDimGroupForGeometry(geometryType, spec) {
+            const geom = geometryType.toLowerCase();
+            const groups = spec?.geometry_dimensions || {};
+            for (const group of ['1D','2D','3D']) {
+                if (groups[group] && Object.prototype.hasOwnProperty.call(groups[group], geom)) return group;
+            }
+            return null;
+        }
+
+        // Dynamic fields from dimensions.json
+        async function getDimensionFieldsForGeometry(geometryType) {
+            const spec = await loadDimensionsSpec();
+            if (!spec) {
+                // fallback minimal
+                return [{ name: 'length', label: 'Length', placeholder: 'e.g., 1.0', unit: 'm' }];
+            }
+            const group = findDimGroupForGeometry(geometryType, spec);
+            if (!group) {
+                return [{ name: 'length', label: 'Length', placeholder: 'e.g., 1.0', unit: 'm' }];
+            }
+            const geomDef = spec.geometry_dimensions[group][geometryType.toLowerCase()];
+            const required = geomDef?.required_dimensions || [];
+            const units = geomDef?.dimension_units || {};
+            const pretty = {
+                length: 'Length', width: 'Width', height: 'Height', thickness: 'Thickness', radius: 'Radius', diameter: 'Diameter'
+            };
+            return required.map(name => ({
+                name,
+                label: pretty[name] || name,
+                placeholder: 'e.g., 1.0',
+                unitOptions: units[name] || ['m','mm','cm']
+            }));
+        }
+
+        // Get default dimensions for geometry type
+        function getDefaultDimensionsForGeometry(geometryType) {
+            const defaultDimensions = {
+                'line': {length: 1.0},
+                'plate': {length: 1.0, width: 1.0, thickness: 0.1},
+                'membrane': {length: 1.0, width: 1.0},
+                'disc': {radius: 0.5},
+                'rectangle': {length: 1.0, width: 1.0},
+                'cube': {length: 1.0},
+                'box': {length: 1.0, width: 1.0, height: 1.0},
+                'beam': {length: 1.0, width: 0.1, height: 0.1},
+                'cylinder': {radius: 0.5, length: 1.0},
+                'sphere': {radius: 0.5},
+                'solid': {length: 1.0, width: 1.0, height: 1.0},
+                'rod': {length: 1.0}
+            };
+            
+            return defaultDimensions[geometryType] || {};
+        }
+
+        // Classify free-text geometry label (e.g., 'rod') to known types and update UI
+        async function classifyAndSetGeometry(freeText) {
+            const text = (freeText || '').trim();
+            if (!text) return;
+            try {
+                const res = await fetch('/nlp/geometry-candidates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: text })
+                });
+                if (!res.ok) {
+                    console.warn('Geometry classifier HTTP error', res.status);
+                    return;
+                }
+                const data = await res.json();
+                const candidates = (data && data.candidates) || [];
+                if (!candidates.length) return;
+                const top = candidates[0];
+                // Prefer a confident mapping to avoid surprises
+                if (top && top.confidence >= 0.6 && top.geometry_type) {
+                    const mapped = top.geometry_type.toLowerCase();
+                    if (currentContext.geometry_type !== mapped) {
+                        console.log('Auto-mapped geometry to:', mapped, 'confidence:', top.confidence);
+                        currentContext.geometry_type = mapped;
+                        currentContext.geometry_dimensions = {}; // reset for new geometry
+                        
+                        // Set default dimensions for the new geometry type
+                        const defaultDimensions = getDefaultDimensionsForGeometry(mapped);
+                        if (defaultDimensions) {
+                            currentContext.geometry_dimensions = defaultDimensions;
+                            console.log(`Set default dimensions for ${mapped}:`, defaultDimensions);
+                        }
+                        
+                        refreshRightPanel();
+                    }
+                }
+            } catch (e) {
+                console.warn('Geometry classifier failed:', e);
+            }
+        }
+        
+        // Helper function to get material property fields based on material type and physics type
+        function getMaterialFieldsForMaterial(materialType, physicsType = 'solid_mechanics') {
+            const thermalProperties = [
+                { name: 'density', label: 'Density', unit: 'kg/m³', step: '1' },
+                { name: 'thermal_conductivity', label: 'Thermal Conductivity', unit: 'W/(m·K)', step: '1' },
+                { name: 'specific_heat', label: 'Specific Heat', unit: 'J/(kg·K)', step: '1' },
+                { name: 'thermal_expansion', label: 'Thermal Expansion', unit: '/K', step: '0.00001' }
+            ];
+            
+            const structuralProperties = [
+                { name: 'density', label: 'Density', unit: 'kg/m³', step: '1' },
+                { name: 'youngs_modulus', label: 'Young\'s Modulus', unit: 'Pa', step: '1000000' },
+                { name: 'poisson_ratio', label: 'Poisson Ratio', unit: '', step: '0.01' }
+            ];
+            
+            // For heat transfer, prioritize thermal properties
+            if (physicsType === 'heat_transfer') {
+                switch(materialType.toLowerCase()) {
+                    case 'steel':
+                        return thermalProperties.map(prop => ({
+                            ...prop,
+                            defaultValue: prop.name === 'density' ? '7850' :
+                                        prop.name === 'thermal_conductivity' ? '50' :
+                                        prop.name === 'specific_heat' ? '460' :
+                                        prop.name === 'thermal_expansion' ? '0.000012' : ''
+                        }));
+                    case 'aluminum':
+                        return thermalProperties.map(prop => ({
+                            ...prop,
+                            defaultValue: prop.name === 'density' ? '2700' :
+                                        prop.name === 'thermal_conductivity' ? '205' :
+                                        prop.name === 'specific_heat' ? '900' :
+                                        prop.name === 'thermal_expansion' ? '0.000023' : ''
+                        }));
+                    case 'concrete':
+                        return thermalProperties.map(prop => ({
+                            ...prop,
+                            defaultValue: prop.name === 'density' ? '2300' :
+                                        prop.name === 'thermal_conductivity' ? '1.7' :
+                                        prop.name === 'specific_heat' ? '880' :
+                                        prop.name === 'thermal_expansion' ? '0.000010' : ''
+                        }));
+                    case 'wood':
+                        return thermalProperties.map(prop => ({
+                            ...prop,
+                            defaultValue: prop.name === 'density' ? '600' :
+                                        prop.name === 'thermal_conductivity' ? '0.12' :
+                                        prop.name === 'specific_heat' ? '1700' :
+                                        prop.name === 'thermal_expansion' ? '0.000005' : ''
+                        }));
+                    case 'copper':
+                        return thermalProperties.map(prop => ({
+                            ...prop,
+                            defaultValue: prop.name === 'density' ? '8900' :
+                                        prop.name === 'thermal_conductivity' ? '400' :
+                                        prop.name === 'specific_heat' ? '385' :
+                                        prop.name === 'thermal_expansion' ? '0.000017' : ''
+                        }));
+                    default:
+                        return thermalProperties;
+                }
+            }
+            
+            // For structural analysis, use structural properties
+            switch(materialType.toLowerCase()) {
+                case 'steel':
+                    return [
+                        ...structuralProperties,
+                        { name: 'yield_strength', label: 'Yield Strength', unit: 'Pa', step: '1000000', defaultValue: '250000000' },
+                        { name: 'thermal_conductivity', label: 'Thermal Conductivity', unit: 'W/(m·K)', step: '1', defaultValue: '50' },
+                        { name: 'specific_heat', label: 'Specific Heat', unit: 'J/(kg·K)', step: '1', defaultValue: '460' }
+                    ];
+                case 'aluminum':
+                    return [
+                        ...structuralProperties,
+                        { name: 'yield_strength', label: 'Yield Strength', unit: 'Pa', step: '1000000', defaultValue: '95000000' },
+                        { name: 'thermal_conductivity', label: 'Thermal Conductivity', unit: 'W/(m·K)', step: '1', defaultValue: '205' },
+                        { name: 'specific_heat', label: 'Specific Heat', unit: 'J/(kg·K)', step: '1', defaultValue: '900' }
+                    ];
+                case 'concrete':
+                    return [
+                        ...structuralProperties,
+                        { name: 'compressive_strength', label: 'Compressive Strength', unit: 'Pa', step: '1000000', defaultValue: '30000000' },
+                        { name: 'thermal_conductivity', label: 'Thermal Conductivity', unit: 'W/(m·K)', step: '1', defaultValue: '1.7' },
+                        { name: 'specific_heat', label: 'Specific Heat', unit: 'J/(kg·K)', step: '1', defaultValue: '880' }
+                    ];
+                case 'wood':
+                    return [
+                        ...structuralProperties,
+                        { name: 'compressive_strength', label: 'Compressive Strength', unit: 'Pa', step: '1000000', defaultValue: '40000000' },
+                        { name: 'thermal_conductivity', label: 'Thermal Conductivity', unit: 'W/(m·K)', step: '1', defaultValue: '0.12' },
+                        { name: 'specific_heat', label: 'Specific Heat', unit: 'J/(kg·K)', step: '1', defaultValue: '1700' }
+                    ];
+                default:
+                    return structuralProperties;
+            }
+        }
+        
+        function updateConfig(field, value) {
+            console.log(`Updating config: ${field} = ${value}`);
+            
+            // Parse the input value intelligently
+            const parsedValue = parseConfigInput(field, value);
+            
+            // Update the current context
+            if (field.includes('.')) {
+                const parts = field.split('.');
+                let obj = currentContext;
+                for (let i = 0; i < parts.length - 1; i++) {
+                    if (!obj[parts[i]]) obj[parts[i]] = {};
+                    obj = obj[parts[i]];
+                }
+                obj[parts[parts.length - 1]] = parsedValue;
+            } else {
+                currentContext[field] = parsedValue;
+            }
+            
+            // Show a status message
+            showStatus('info', `Updated ${field}: ${parsedValue}`);
+            
+            // TOP LEVEL CHANGES - Trigger validation and affect pde_config
+            if (field === 'physics_type' || field === 'geometry_type' || field === 'material_type') {
+                console.log(`TOP LEVEL CHANGE: ${field} changed to ${parsedValue}`);
+                
+                // Clear dependent fields when top level changes
+                if (field === 'physics_type') {
+                    // Physics type change affects boundary condition fields
+                    currentContext.boundary_conditions = [];
+                    console.log('Cleared boundary conditions due to physics type change');
+                } else if (field === 'geometry_type') {
+                    // Geometry type change affects dimensions and boundary locations
+                currentContext.geometry_dimensions = {};
+                    currentContext.boundary_conditions = [];
+                    console.log('Cleared dimensions and boundary conditions due to geometry type change');
+            } else if (field === 'material_type') {
+                    // Material type change affects material properties
+                currentContext.material_properties = {};
+                    console.log('Cleared material properties due to material type change');
+                }
+                
+                // Trigger validation for top level changes
+                setTimeout(() => {
+                    parseTopLevelChange(field, parsedValue);
+                }, 100);
+                
+                // Refresh right panel to show updated fields
+                setTimeout(() => {
+                    refreshRightPanel();
+                }, 200);
+            }
+            
+            // NEXT LEVEL CHANGES - Only affect pde_config, no AI parsing
+            else if (field.startsWith('geometry_dimensions.') || 
+                     field.startsWith('material_properties.') || 
+                     field.startsWith('boundary_conditions.')) {
+                console.log(`NEXT LEVEL CHANGE: ${field} changed to ${parsedValue}`);
+                
+                // Update pde_config for next level changes
+                setTimeout(() => {
+                    updatePdeConfigFromContext();
+                }, 100);
+                
+                // Handle mesh preview for dimension changes
+                if (field.startsWith('geometry_dimensions.')) {
+                    // Check if we have enough dimensions for mesh preview
+                    const hasValidDimensions = currentContext.geometry_dimensions && 
+                        Object.keys(currentContext.geometry_dimensions).length > 0 &&
+                        Object.values(currentContext.geometry_dimensions).some(val => val && val !== '');
+                    
+                    if (currentContext.geometry_type && hasValidDimensions) {
+                        setTimeout(() => {
+                            generateMeshPreviewInCenter();
+                        }, 200);
+                    }
+                }
+                
+                // Refresh right panel for material property changes
+                if (field.startsWith('material_properties.')) {
+                setTimeout(() => {
+                    refreshRightPanel();
+                }, 100);
+                }
+            }
+            
+            // If we have enough information, try to generate a mesh preview in center panel
+            // Check if we have geometry dimensions that can be used for mesh generation
+            const hasValidDimensions = currentContext.geometry_dimensions && 
+                Object.keys(currentContext.geometry_dimensions).length > 0 &&
+                Object.values(currentContext.geometry_dimensions).some(val => val && val !== '');
+                
+            // Special handling for dimension changes
+            if (field.startsWith('geometry_dimensions.')) {
+                console.log('Dimension changed:', field, 'New value:', parsedValue);
+                console.log('Updated dimensions:', currentContext.geometry_dimensions);
+                
+                // Immediately trigger mesh update for dimension changes
+                if (currentContext.geometry_type && hasValidDimensions) {
+                    console.log('Triggering immediate mesh preview update for dimension change');
+                    setTimeout(() => {
+                        generateMeshPreviewInCenter();
+                    }, 500); // Shorter delay for dimension changes
+                }
+            } else if (currentContext.geometry_type && hasValidDimensions) {
+                console.log('Triggering mesh preview update with:', currentContext.geometry_type, currentContext.geometry_dimensions);
+                setTimeout(() => {
+                    generateMeshPreviewInCenter();
+                }, 1000);
+            }
+        }
+        
+        // Get default dimensions for a geometry type
+        function getDefaultDimensionsForGeometry(geometryType) {
+            const defaultDimensions = {
+                'line': { length: 1.0 },
+                'rod': { length: 1.0 },
+                'bar': { length: 1.0 },
+                'plate': { length: 1.0, width: 0.8, thickness: 0.02 },
+                'membrane': { length: 1.0, width: 0.8 },
+                'disc': { radius: 0.5 },
+                'rectangle': { length: 1.0, width: 0.8 },
+                'square': { length: 1.0 },
+                'cube': { length: 1.0 },
+                'box': { length: 1.0, width: 0.8, height: 0.6 },
+                'beam': { length: 1.0, width: 0.1, height: 0.1 },
+                'cylinder': { radius: 0.5, length: 1.0 },
+                'sphere': { radius: 0.5 }
+            };
+            
+            return defaultDimensions[geometryType] || {};
+        }
+        
+        // Get available boundary locations for a geometry type
+        function getAvailableBoundariesForGeometry(geometryType) {
+            const boundaryMapping = {
+                'line': ['left', 'right'],
+                'rod': ['left', 'right'],
+                'bar': ['left', 'right'],
+                'plate': ['left', 'right', 'top', 'bottom'],
+                'membrane': ['left', 'right', 'top', 'bottom'],
+                'disc': ['circumference', 'center'],
+                'rectangle': ['left', 'right', 'top', 'bottom'],
+                'square': ['left', 'right', 'top', 'bottom'],
+                'cube': ['left', 'right', 'top', 'bottom', 'front', 'back'],
+                'box': ['left', 'right', 'top', 'bottom', 'front', 'back'],
+                'beam': ['left', 'right', 'top', 'bottom', 'front', 'back'],
+                'cylinder': ['top', 'bottom', 'circumference'],
+                'sphere': ['surface', 'center']
+            };
+            
+            return boundaryMapping[geometryType] || [];
+        }
+        
+        // Parse top level changes with validation
+        async function parseTopLevelChange(field, value) {
+            try {
+                console.log(`=== VALIDATION FOR TOP LEVEL CHANGE ===`);
+                console.log(`Field: ${field}, Value: ${value}`);
+                console.log(`Current context:`, window.currentContext);
+                
+                // For now, use validation against pre-set values instead of AI parsing
+                // This ensures we use the correct geometry types, boundary locations, fields, and material properties
+                
+                if (field === 'geometry_type') {
+                    // Validate geometry type and set default dimensions
+                    const validGeometryTypes = ['line', 'rod', 'bar', 'plate', 'membrane', 'disc', 'rectangle', 'square', 'cube', 'box', 'beam', 'cylinder', 'sphere'];
+                    if (validGeometryTypes.includes(value)) {
+                        // Set default dimensions for the geometry type
+                        const defaultDimensions = getDefaultDimensionsForGeometry(value);
+                        if (defaultDimensions) {
+                            currentContext.geometry_dimensions = defaultDimensions;
+                            console.log(`Set default dimensions for ${value}:`, defaultDimensions);
+                        }
+                        
+                        // Set default boundary conditions based on geometry type
+                        const availableBoundaries = getAvailableBoundariesForGeometry(value);
+                        if (availableBoundaries.length > 0) {
+                            // Set default boundary conditions
+                            currentContext.boundary_conditions = [
+                                {
+                                    type: 'temperature',
+                                    location: availableBoundaries[0],
+                                    value: 100,
+                                    confidence: 0.9
+                                },
+                                {
+                                    type: 'temperature',
+                                    location: availableBoundaries[availableBoundaries.length - 1],
+                                    value: 10,
+                                    confidence: 0.9
+                                }
+                            ];
+                            console.log(`Set default boundary conditions for ${value}:`, currentContext.boundary_conditions);
+                        }
+                    }
+                } else if (field === 'physics_type') {
+                    // Validate physics type and set appropriate boundary condition fields
+                    const validPhysicsTypes = ['heat_transfer', 'solid_mechanics'];
+                    if (validPhysicsTypes.includes(value)) {
+                        // Update existing boundary conditions to use correct fields for physics type
+                        if (currentContext.boundary_conditions && currentContext.boundary_conditions.length > 0) {
+                            currentContext.boundary_conditions.forEach(bc => {
+                                if (value === 'heat_transfer') {
+                                    bc.type = 'temperature';
+                                } else if (value === 'solid_mechanics') {
+                                    bc.type = 'fixed';
+                                }
+                            });
+                            console.log(`Updated boundary condition fields for ${value}:`, currentContext.boundary_conditions);
+                        }
+                    }
+                } else if (field === 'material_type') {
+                    // Validate material type and set default material properties
+                    const validMaterialTypes = ['steel', 'aluminum', 'copper', 'concrete', 'wood', 'titanium', 'brass', 'stainless_steel', 'cast_iron', 'glass'];
+                    if (validMaterialTypes.includes(value)) {
+                        // Set default material properties based on material type
+                        const defaultProperties = getDefaultMaterialProperties(value, currentContext.physics_type || 'solid_mechanics');
+                        if (defaultProperties) {
+                            currentContext.material_properties = defaultProperties;
+                            console.log(`Set default material properties for ${value}:`, defaultProperties);
+                        }
+                    }
+                }
+                
+                // Update pde_config after validation
+                setTimeout(() => {
+                    updatePdeConfigFromContext();
+                }, 100);
+                
+                showStatus('success', `Validated ${field} change successfully`);
+                
+            } catch (error) {
+                console.error('Error in top level change validation:', error);
+                showStatus('error', `Validation error: ${error.message}`);
+            }
+        }
+        
+        // Get default material properties for a material type and physics type
+        function getDefaultMaterialProperties(materialType, physicsType) {
+            const materialProperties = {
+                'steel': {
+                    'heat_transfer': { density: 7850, thermal_conductivity: 50, specific_heat: 460 },
+                    'solid_mechanics': { density: 7850, youngs_modulus: 200000000000, poisson_ratio: 0.3 }
+                },
+                'aluminum': {
+                    'heat_transfer': { density: 2700, thermal_conductivity: 205, specific_heat: 900 },
+                    'solid_mechanics': { density: 2700, youngs_modulus: 70000000000, poisson_ratio: 0.33 }
+                },
+                'copper': {
+                    'heat_transfer': { density: 8960, thermal_conductivity: 400, specific_heat: 385 },
+                    'solid_mechanics': { density: 8960, youngs_modulus: 110000000000, poisson_ratio: 0.34 }
+                },
+                'concrete': {
+                    'heat_transfer': { density: 2300, thermal_conductivity: 1.7, specific_heat: 880 },
+                    'solid_mechanics': { density: 2300, youngs_modulus: 30000000000, poisson_ratio: 0.2 }
+                },
+                'wood': {
+                    'heat_transfer': { density: 600, thermal_conductivity: 0.12, specific_heat: 1700 },
+                    'solid_mechanics': { density: 600, youngs_modulus: 12000000000, poisson_ratio: 0.4 }
+                }
+            };
+            
+            return materialProperties[materialType]?.[physicsType] || {};
+        }
+        
+        function refreshRightPanel() {
+            // Create a mock data object with current context
+            const mockData = {
+                success: true,
+                context: window.currentContext
+            };
+            displayRightPanel(mockData);
+        }
+
+        // Ensure the right panel shows dimensions on load
+        window.addEventListener('load', () => {
+            if (!currentContext.geometry_type) {
+                currentContext.geometry_type = 'beam';
+                currentContext.geometry_dimensions = {};
+            }
+            refreshRightPanel();
+        });
+        
+        function parseConfigInput(field, value) {
+            if (!value || value.trim() === '') return value;
+            
+            const trimmedValue = value.trim();
+            
+            // Handle dimension inputs - extract numbers and units
+            if (field.includes('dimensions') || field.includes('length') || field.includes('radius') || field.includes('width') || field.includes('height') || field.includes('diameter')) {
+                // Extract number from input like "2m", "1.5 meters", "50cm", "60cm diameter", etc.
+                // First try to match number followed by unit
+                let numberMatch = trimmedValue.match(/(\d+(?:\.\d+)?)\s*(?:m|meter|meters|cm|mm|inch|inches|km)\b/i);
+                if (!numberMatch) {
+                    // If no unit found after number, try to find unit anywhere in the string
+                    numberMatch = trimmedValue.match(/(\d+(?:\.\d+)?)/);
+                }
+                if (numberMatch) {
+                    let num = parseFloat(numberMatch[1]);
+                    const lowerValue = trimmedValue.toLowerCase();
+                    
+                    // Convert units if needed - check for specific unit patterns
+                    if (lowerValue.includes('cm')) num = num / 100;           // cm to m
+                    if (lowerValue.includes('mm')) num = num / 1000;           // mm to m
+                    if (lowerValue.includes('inch')) num = num * 0.0254;       // inch to m
+                    if (lowerValue.includes('km')) num = num * 1000;           // km to m
+                    
+                    console.log(`Parsed dimension: ${trimmedValue} -> ${num} m`);
+                    return num.toString();
+                }
+                return trimmedValue;
+            }
+            
+            // Handle material inputs
+            if (field.includes('material')) {
+                // Standardize common material names
+                const material = trimmedValue.toLowerCase();
+                if (material.includes('steel')) return 'steel';
+                if (material.includes('aluminum') || material.includes('aluminium')) return 'aluminum';
+                if (material.includes('concrete')) return 'concrete';
+                if (material.includes('wood')) return 'wood';
+                if (material.includes('plastic')) return 'plastic';
+                return trimmedValue;
+            }
+            
+            // Handle geometry type inputs
+            if (field.includes('geometry_type')) {
+                const geometry = trimmedValue.toLowerCase();
+                if (geometry.includes('beam')) return 'beam';
+                if (geometry.includes('plate')) return 'plate';
+                if (geometry.includes('shell')) return 'shell';
+                if (geometry.includes('solid')) return 'solid';
+                if (geometry.includes('cylinder')) return 'cylinder';
+                if (geometry.includes('sphere')) return 'sphere';
+                return trimmedValue;
+            }
+            
+            // Handle boundary condition inputs
+            if (field.includes('boundary_conditions')) {
+                // Parse common boundary condition patterns
+                const bc = trimmedValue.toLowerCase();
+                if (bc.includes('fixed') || bc.includes('clamped')) return 'fixed';
+                if (bc.includes('free') || bc.includes('unconstrained')) return 'free';
+                if (bc.includes('simply supported') || bc.includes('pinned')) return 'simply_supported';
+                if (bc.includes('temperature') || bc.includes('°c') || bc.includes('°f')) return trimmedValue;
+                if (bc.includes('load') || bc.includes('force') || bc.includes('n')) return trimmedValue;
+                return trimmedValue;
+            }
+            
+            // Handle temperature inputs
+            if (field.includes('temperature')) {
+                const tempMatch = trimmedValue.match(/(\d+(?:\.\d+)?)\s*(?:°c|°f|celsius|fahrenheit)?/i);
+                if (tempMatch) {
+                    let temp = parseFloat(tempMatch[1]);
+                    // Convert to Celsius if Fahrenheit
+                    if (trimmedValue.toLowerCase().includes('f') || trimmedValue.toLowerCase().includes('fahrenheit')) {
+                        temp = (temp - 32) * 5/9;
+                    }
+                    return temp.toString();
+                }
+                return trimmedValue;
+            }
+            
+            // Handle force/load inputs
+            if (field.includes('load') || field.includes('force') || field.includes('value')) {
+                // Enhanced regex to match various force units
+                const forceMatch = trimmedValue.match(/(\d+(?:\.\d+)?)\s*(?:n|newton|newtons|kn|mn|gn|lb|lbf|kgf|ton|tons)?/i);
+                if (forceMatch) {
+                    let force = parseFloat(forceMatch[1]);
+                    const unit = trimmedValue.toLowerCase();
+                    
+                    // Convert units to Newtons
+                    if (unit.includes('kn')) force = force * 1000;           // kN to N
+                    if (unit.includes('mn')) force = force * 1000000;        // MN to N
+                    if (unit.includes('gn')) force = force * 1000000000;      // GN to N
+                    if (unit.includes('lb') || unit.includes('lbf')) force = force * 4.448; // lbf to N
+                    if (unit.includes('kgf')) force = force * 9.807;         // kgf to N
+                    if (unit.includes('ton')) force = force * 9807;          // ton-force to N
+                    
+                    console.log(`Parsed force: ${trimmedValue} -> ${force} N`);
+                    return force.toString();
+                }
+                return trimmedValue;
+            }
+            
+            // Default: return the trimmed value
+            return trimmedValue;
+        }
+        
+        function generateMeshPreviewInCenter() {
+            const centerContent = document.getElementById('centerContent');
+            
+            console.log('=== GENERATING MESH PREVIEW ===');
+            console.log('Current context:', currentContext);
+            
+            // Only use geometry type and dimensions for mesh preview
+            const geometryType = currentContext.geometry_type || 'beam';
+            const dimensions = currentContext.geometry_dimensions || { length: 1.0 };
+            
+            console.log('Geometry type:', geometryType);
+            console.log('Dimensions:', dimensions);
+            
+            // Validate that we have minimum required data
+            if (!geometryType || !dimensions || Object.keys(dimensions).length === 0) {
+                console.log('Insufficient geometry data for mesh preview');
+                // Don't destroy the iframe container, just show message in iframe
+                const iframe = document.getElementById('meshIframe');
+                if (iframe) {
+                    iframe.src = 'data:text/html,<html><body style="display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #001100; color: #ff6666; font-family: monospace; font-size: 18px;">Please provide geometry type and dimensions to generate mesh preview</body></html>';
+                }
+                return;
+            }
+            
+            // Validate that dimensions have actual values
+            const hasValidValues = Object.values(dimensions).some(val => val && val !== '' && val !== '0' && parseFloat(val) > 0);
+            if (!hasValidValues) {
+                console.log('No valid dimension values found');
+                // Don't destroy the iframe container, just show message in iframe
+                const iframe = document.getElementById('meshIframe');
+                if (iframe) {
+                    iframe.src = 'data:text/html,<html><body style="display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #001100; color: #ff6666; font-family: monospace; font-size: 18px;">Please provide valid dimension values (greater than 0)</body></html>';
+                }
+                return;
+            }
+            
+            // Don't show loading message - just update iframe directly when ready
+            
+            // Filter out null values from dimensions
+            const filteredDimensions = {};
+            for (const [key, value] of Object.entries(dimensions)) {
+                if (value !== null && value !== undefined && value > 0) {
+                    filteredDimensions[key] = value;
+                }
+            }
+            
+            // Create mesh preview request with only geometry data
+            const geometryData = {
+                geometry_type: geometryType,
+                dimensions: filteredDimensions
+            };
+            
+            console.log('Sending mesh preview request:', geometryData);
+            
+            fetch('/mesh/preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(geometryData)
+            })
+            .then(response => {
+                console.log('Mesh preview response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Mesh preview response data:', data);
+                if (data.success && data.mesh_visualization_url) {
+                    console.log('Displaying mesh visualization:', data.mesh_visualization_url);
+                    
+                    // Mesh data is now handled by the FEniCS solver backend
+                    // No need to store mesh data in frontend
+                    
+                    displayMeshVisualization(data.mesh_visualization_url);
+                } else {
+                    console.error('Mesh preview failed:', data.error || 'Unknown error');
+                    const iframe = document.getElementById('meshIframe');
+                    if (iframe) {
+                        iframe.src = `data:text/html,<html><body style="display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #001100; color: #ff6666; font-family: monospace; font-size: 18px;">Failed to generate mesh preview: ${data.error || 'Unknown error'}</body></html>`;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error generating mesh preview:', error);
+                const iframe = document.getElementById('meshIframe');
+                if (iframe) {
+                    iframe.src = `data:text/html,<html><body style="display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #001100; color: #ff6666; font-family: monospace; font-size: 18px;">Error generating mesh preview: ${error.message}</body></html>`;
+                }
+            });
+        }
+        
+        function displayMeshVisualization(url) {
+            console.log('=== DISPLAYING MESH VISUALIZATION ===');
+            console.log('URL:', url);
+            
+            // Only proceed if we have a valid URL
+            if (!url) {
+                console.log('No mesh visualization URL provided, skipping container creation');
+                return;
+            }
+            
+            const centerContent = document.getElementById('centerContent');
+            console.log('Center content element:', centerContent);
+            
+            if (!centerContent) {
+                console.error('Center content element not found');
+                showStatus('error', 'Center content element not found');
+                return;
+            }
+            
+            // Clear any existing content first
+            centerContent.innerHTML = '';
+            
+            // Replace the entire center content with a simple mesh container
+            centerContent.innerHTML = `
+                <div id="meshContainer" style="width: 100%; height: 100%; position: relative; background: #001100;">
+                    <iframe id="meshIframe" style="width: 100%; height: 100%; border: 2px solid #00ff00; background: transparent; display: block;"></iframe>
+                </div>
+            `;
+            
+            const meshContainer = document.getElementById('meshContainer');
+            console.log('Created mesh container:', meshContainer);
+            
+            // Update the iframe source
+            const iframe = document.getElementById('meshIframe');
+            console.log('Iframe element:', iframe);
+            
+            if (iframe) {
+                console.log('Updating iframe src to:', url);
+                iframe.src = url;
+                
+                // Add load event listeners for debugging
+                iframe.onload = function() {
+                    console.log('✅ Mesh iframe loaded successfully:', url);
+                    // Show success indicator
+                    iframe.style.border = '2px solid #00ff00';
+                };
+                iframe.onerror = function() {
+                    console.error('❌ Mesh iframe failed to load:', url);
+                    // Show error indicator
+                    iframe.style.border = '2px solid #ff0000';
+                    iframe.src = `data:text/html,<html><body style="display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #001100; color: #ff6666; font-family: monospace; font-size: 18px; text-align: center;"><div><h3>Mesh Loading Failed</h3><p>URL: ${url}</p><p>Check console for details</p></div></body></html>`;
+                };
+                
+                // Add a timeout to check if iframe loaded
+                setTimeout(() => {
+                    try {
+                        const a = document.createElement('a');
+                        a.href = url;
+                        const expected = a.href; // normalized absolute URL
+                        if (iframe.src === expected || iframe.src === url || iframe.src.startsWith('data:')) {
+                            console.log('✅ Iframe src set correctly');
+                        } else {
+                            console.warn('ℹ️ Iframe src normalized. Expected:', expected, 'Actual:', iframe.src);
+                        }
+                    } catch (e) {
+                        console.warn('ℹ️ Iframe src check skipped:', e);
+                    }
+                }, 1000);
+            } else {
+                console.error('❌ Could not find iframe element');
+            }
+            
+            // Store the current visualization URL
+            currentVisualizationUrl = url;
+            
+            console.log('✅ Mesh iframe update completed');
+        }
+        
+        function generateMeshPreview() {
+            // This function is kept for backward compatibility but now redirects to center panel
+            generateMeshPreviewInCenter();
+        }
+        
+        function openInNewTab() {
+            if (currentVisualizationUrl) {
+                window.open(currentVisualizationUrl, '_blank');
+            } else {
+                // Generate a new mesh preview and open it in a new tab
+                const geometryType = currentContext.geometry_type || 'beam';
+                const dimensions = currentContext.geometry_dimensions || { length: 1.0 };
+                
+                if (geometryType && dimensions && Object.keys(dimensions).length > 0) {
+                    const geometryData = {
+                        geometry_type: geometryType,
+                        dimensions: dimensions
+                    };
+                    
+                    fetch('/mesh/preview', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(geometryData)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.mesh_visualization_url) {
+                            window.open(data.mesh_visualization_url, '_blank');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error generating mesh for new tab:', error);
+                    });
+                }
+            }
+        }
+        
+        // Store context when simulation results come back
+        function storeSimulationContext(data) {
+            if (data.success && data.context) {
+                currentContext = data.context;
+                console.log('Stored simulation context:', currentContext);
+            }
+        }
+        
+        function displayFieldVisualization(url) {
+            console.log('=== DISPLAYING FIELD VISUALIZATION ===');
+            console.log('URL:', url);
+            
+            if (!url) {
+                console.error('No field visualization URL provided');
+                showStatus('error', 'No field visualization URL');
+                return;
+            }
+            
+            const centerContent = document.getElementById('centerContent');
+            console.log('Center content element:', centerContent);
+            
+            if (!centerContent) {
+                console.error('Center content element not found');
+                showStatus('error', 'Center content element not found');
+                return;
+            }
+            
+            // Clear any existing content first
+            centerContent.innerHTML = '';
+            
+            // Replace the entire center content with a simple field container
+            centerContent.innerHTML = `
+                <div id="fieldContainer" style="width: 100%; height: 100%; position: relative; background: #001100;">
+                    <iframe id="fieldIframe" style="width: 100%; height: 100%; border: 2px solid #00ff00; background: transparent; display: block;"></iframe>
+                </div>
+            `;
+            
+            const fieldContainer = document.getElementById('fieldContainer');
+            console.log('Created field container:', fieldContainer);
+            
+            const iframe = document.getElementById('fieldIframe');
+            console.log('Iframe element:', iframe);
+            
+            // Set the iframe source
+            iframe.src = url;
+            console.log('Updating iframe src to:', url);
+            
+            // Wait for iframe to load
+            iframe.onload = function() {
+                console.log('✅ Field iframe loaded successfully:', url);
+                showStatus('success', 'Field visualization loaded successfully.');
+            };
+            
+            iframe.onerror = function() {
+                console.error('❌ Failed to load field visualization:', url);
+                showStatus('error', 'Failed to load field visualization.');
+            };
+        }
+        
+        function reloadVisualization() {
+            if (currentVisualizationUrl) {
+                const iframe = document.getElementById('meshIframe');
+                if (iframe) {
+                    iframe.src = 'about:blank';
+                    setTimeout(() => {
+                        iframe.src = `${currentVisualizationUrl}?t=${Date.now()}`;
+                    }, 100);
+                }
+            }
+        }
+        
+        function openFullScreen() {
+            if (currentVisualizationUrl) {
+                const fullscreenWindow = window.open(currentVisualizationUrl + '?fullscreen=true', '_blank', 
+                    'width=1400,height=900,scrollbars=no,resizable=yes,menubar=no,toolbar=no,location=no,status=no');
+                
+                if (fullscreenWindow) {
+                    // Focus the new window
+                    fullscreenWindow.focus();
+                }
+            }
+        }
+        
+        function toggleSize() {
+            const iframe = document.getElementById('meshIframe');
+            if (iframe) {
+                const currentHeight = iframe.style.height;
+                if (currentHeight === '100%') {
+                    iframe.style.height = '400px';
+                } else {
+                    iframe.style.height = '100%';
+                }
+            }
+        }
+        
+        // Allow Enter key to submit
+        document.getElementById('prompt').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                simulate();
+            }
+        });
+        
+        // Boundary condition update functions
+        function updateBoundaryConditionType(index, newType) {
+            if (!window.currentContext || !window.currentContext.boundary_conditions) return;
+            
+            const bc = window.currentContext.boundary_conditions[index];
+            if (!bc) return;
+            
+            // Update the boundary condition type
+            bc.type = newType;
+            bc.bc_type = newType;
+            
+            // Parse the boundary condition change at the specific location
+            parseBoundaryConditionChange(bc);
+        }
+        
+        function updateBoundaryConditionValue(index, newValue) {
+            if (!window.currentContext || !window.currentContext.boundary_conditions) return;
+            
+            const bc = window.currentContext.boundary_conditions[index];
+            if (!bc) return;
+            
+            // Parse the input value intelligently to handle units like "10kN"
+            const parsedValue = parseConfigInput('force', newValue);
+            bc.value = parseFloat(parsedValue);
+            
+            console.log(`Updated boundary condition ${index}: ${newValue} -> ${bc.value}`);
+            
+            // Parse the boundary condition change at the specific location
+            parseBoundaryConditionChange(bc);
+        }
+        
+        function getBoundaryConditionOptions(physicsType) {
+            const options = {
+                'heat_transfer': [
+                    { value: 'temperature', text: 'Temperature' },
+                    { value: 'heat_flux', text: 'Heat Flux' },
+                    { value: 'insulated', text: 'Insulated' }
+                ],
+                'solid_mechanics': [
+                    { value: 'fixed', text: 'Fixed' },
+                    { value: 'free', text: 'Free' },
+                    { value: 'traction', text: 'Traction' },
+                    { value: 'pressure', text: 'Pressure' }
+                ]
+            };
+            
+            return options[physicsType] || options['heat_transfer'];
+        }
+        
+        function normalizeBcType(physicsType, bc) {
+            const raw = (bc && (bc.type || bc.bc_type)) || '';
+            if (!raw) return raw;
+            const s = String(raw).toLowerCase().trim();
+            if (physicsType === 'heat_transfer') {
+                if (s === 'neumann' || s === 'flux' || s === 'heat flux') return 'heat_flux';
+                if (s === 'dirichlet' || s === 'fixed' || s === 'temperature') return 'temperature';
+                if (s === 'insulated' || s === 'neumann_zero') return 'insulated';
+            } else if (physicsType === 'solid_mechanics') {
+                if (s === 'dirichlet' || s === 'fixed' || s === 'displacement') return 'fixed';
+                if (s === 'neumann' || s === 'traction') return 'traction';
+                if (s === 'pressure') return 'pressure';
+                if (s === 'free' || s === 'roller') return 'free';
+            }
+            return s;
+        }
+
+        function generateBoundaryConditionSelect(bc, index, physicsType) {
+            const options = getBoundaryConditionOptions(physicsType);
+            const normType = normalizeBcType(physicsType, bc);
+            let selectHtml = '<select class="config-input" onchange="updateBoundaryConditionType(' + index + ', this.value)">';
+            
+            options.forEach(option => {
+                const selected = normType === option.value ? 'selected' : '';
+                selectHtml += `<option value="${option.value}" ${selected}>${option.text}</option>`;
+            });
+            
+            selectHtml += '</select>';
+            return selectHtml;
+        }
+        
+        function removeBoundaryCondition(index) {
+            if (!window.currentContext || !window.currentContext.boundary_conditions) return;
+            
+            // Remove the boundary condition
+            window.currentContext.boundary_conditions.splice(index, 1);
+            
+            // Refresh the right panel to show updated boundary conditions
+            refreshRightPanel();
+        }
+        
+        function parseBoundaryConditionChange(bc) {
+            // Create a prompt for AI to parse the boundary condition change at the specific location
+            const location = bc.location || bc.mapped_location || 'unknown';
+            const prompt = `Boundary condition at ${location}: ${bc.type} = ${bc.value}. Parse this boundary condition and ensure it's correctly classified.`;
+            
+            console.log('Parsing boundary condition change:', prompt);
+            console.log('Boundary condition object:', bc);
+            
+            // Send to AI for parsing (this will update the boundary condition classification)
+            parseBoundaryConditionPrompt(prompt, bc);
+            
+            // Also update the pde_config with the current context
+            updatePdeConfigFromContext();
+        }
+        
+        async function updatePdeConfigFromContext() {
+            try {
+                console.log('Updating pde_config from current context...');
+                
+                const response = await fetch('/update_boundary_condition', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        boundary_condition: {}, // Not needed for context update
+                        context: window.currentContext
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log('Successfully updated pde_config:', result.updated_pde_config);
+                        showStatus('success', 'Boundary conditions updated in PDE configuration');
+                    } else {
+                        console.error('Failed to update pde_config:', result.error);
+                        showStatus('error', 'Failed to update PDE configuration');
+                    }
+                } else {
+                    console.error('Error updating pde_config: HTTP', response.status);
+                    showStatus('error', 'Error updating PDE configuration');
+                }
+            } catch (error) {
+                console.error('Error updating pde_config:', error);
+                showStatus('error', 'Error updating PDE configuration');
+            }
+        }
+        
+        async function parseBoundaryConditionPrompt(prompt, bc) {
+            try {
+                // Send the boundary condition change to the AI parser
+                const response = await fetch('/parse_boundary_condition', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        boundary_condition: bc,
+                        context: window.currentContext
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.boundary_condition) {
+                        // Update the boundary condition with AI-parsed information
+                        Object.assign(bc, result.boundary_condition);
+                        
+                        // Refresh the right panel to show updated boundary conditions
+                        refreshRightPanel();
+                        
+                        console.log('Boundary condition updated by AI:', bc);
+                    }
+                }
+            } catch (error) {
+                console.error('Error parsing boundary condition:', error);
+            }
+        }
+        
+        // Focus on prompt input on page load
+        window.addEventListener('load', function() {
+            document.getElementById('prompt').focus();
+            
+            // Initialize the mesh container in the center panel
+            const centerContent = document.getElementById('centerContent');
+            if (centerContent && !document.getElementById('meshContainer')) {
+                centerContent.innerHTML = `
+                    <div id="meshContainer" style="width: 100%; height: 100%; position: relative; background: #001100;">
+                        <iframe id="meshIframe" style="width: 100%; height: 100%; border: none; background: transparent; display: block;"></iframe>
+                    </div>
+                `;
+                console.log('✅ Mesh container initialized');
+                
+                // Test iframe loading
+                const iframe = document.getElementById('meshIframe');
+                if (iframe) {
+                    iframe.onload = function() {
+                        console.log('✅ Initial iframe loaded successfully');
+                    };
+                    iframe.onerror = function() {
+                        console.error('❌ Initial iframe failed to load');
+                    };
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "version": "2.0.0",
+  "description": "Main configuration file for FEM simulation system",
+  "geometry": {
+    "type": "rod",
+    "dimensions": {
+      "length": 1.0,
+      "radius": 0.3
+    }
+  },
+  "material": {
+    "type": "",
+    "properties": {}
+  },
+  "physics": {
+    "type": "",
+    "family": "Lagrange",
+    "degree": 1,
+    "temp_degree": 1,
+    "disp_degree": 1,
+    "boundary_conditions": [],
+    "external_loads": [],
+    "mesh_parameters": {
+      "resolution": 50,
+      "element_type": "tetra"
+    }
+  },
+  "simulation": {
+    "solver_settings": {
+      "method": "",
+      "tolerance": 1e-06,
+      "max_iterations": 1000,
+      "time_step": 0.001
+    },
+    "output_settings": {
+      "save_results": true,
+      "visualization_format": "vtk",
+      "save_mesh": true
+    },
+    "last_updated": "2025-10-29T18:59:34.831035"
+  },
+  "configuration_files": {
+    "dimensions": "config/dimensions.json",
+    "boundary_conditions": "config/boundary_conditions.json"
+  }
+}

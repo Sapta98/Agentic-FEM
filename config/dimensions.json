@@ -1,0 +1,230 @@
+{
+  "version": "1.0.0",
+  "description": "Expected dimensions for different geometry types",
+  "geometry_dimensions": {
+    "1D": {
+      "line": {
+        "description": "1D line segment",
+        "required_dimensions": ["length"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the line segment"
+        }
+      }
+    },
+    "2D": {
+      "plate": {
+        "description": "2D plate/shell structure",
+        "required_dimensions": ["length", "width", "thickness"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"],
+          "width": ["m", "mm", "cm", "ft", "in"],
+          "thickness": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the plate",
+          "width": "Width of the plate", 
+          "thickness": "Thickness of the plate"
+        }
+      },
+      "membrane": {
+        "description": "2D membrane structure",
+        "required_dimensions": ["length", "width"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"],
+          "width": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the membrane",
+          "width": "Width of the membrane"
+        }
+      },
+      "disc": {
+        "description": "2D circular disc",
+        "required_dimensions": ["radius"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "radius": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "radius": "Radius of the disc"
+        }
+      },
+      "rectangle": {
+        "description": "2D rectangular region",
+        "required_dimensions": ["length", "width"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"],
+          "width": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the rectangle",
+          "width": "Width of the rectangle"
+        }
+      }
+    },
+    "3D": {
+      "cube": {
+        "description": "3D cube",
+        "required_dimensions": ["length"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Side length of the cube"
+        }
+      },
+      "box": {
+        "description": "3D rectangular box",
+        "required_dimensions": ["length", "width", "height"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"],
+          "width": ["m", "mm", "cm", "ft", "in"],
+          "height": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the box",
+          "width": "Width of the box",
+          "height": "Height of the box"
+        }
+      },
+      "beam": {
+        "description": "3D beam structure",
+        "required_dimensions": ["length", "width", "height"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"],
+          "width": ["m", "mm", "cm", "ft", "in"],
+          "height": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the beam",
+          "width": "Width of the beam cross-section",
+          "height": "Height of the beam cross-section"
+        }
+      },
+      "cylinder": {
+        "description": "3D cylinder",
+        "required_dimensions": ["radius", "length"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "radius": ["m", "mm", "cm", "ft", "in"],
+          "length": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "radius": "Radius of the cylinder",
+          "length": "Length/height of the cylinder"
+        }
+      },
+      "sphere": {
+        "description": "3D sphere",
+        "required_dimensions": ["radius"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "radius": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "radius": "Radius of the sphere"
+        }
+      },
+      "solid": {
+        "description": "3D solid/rectangular body",
+        "required_dimensions": ["length", "width", "height"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"],
+          "width": ["m", "mm", "cm", "ft", "in"],
+          "height": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the solid",
+          "width": "Width of the solid",
+          "height": "Height of the solid"
+        }
+      },
+      "rectangular": {
+        "description": "3D rectangular solid",
+        "required_dimensions": ["length", "width", "height"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"],
+          "width": ["m", "mm", "cm", "ft", "in"],
+          "height": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the rectangular solid",
+          "width": "Width of the rectangular solid",
+          "height": "Height of the rectangular solid"
+        }
+      }
+    }
+  },
+  "dimension_aliases": {
+    "length": ["l", "L", "long", "longitudinal"],
+    "width": ["w", "W", "breadth", "wide"],
+    "height": ["h", "H", "tall", "vertical"],
+    "thickness": ["t", "T", "thick", "depth"],
+    "radius": ["r", "R", "rad", "diameter/2", "d/2"],
+    "diameter": ["d", "D", "dia"]
+  },
+  "unit_conversions": {
+    "m": {
+      "mm": 1000,
+      "cm": 100,
+      "ft": 3.28084,
+      "in": 39.3701
+    },
+    "mm": {
+      "m": 0.001,
+      "cm": 0.1,
+      "ft": 0.00328084,
+      "in": 0.0393701
+    },
+    "cm": {
+      "m": 0.01,
+      "mm": 10,
+      "ft": 0.0328084,
+      "in": 0.393701
+    },
+    "ft": {
+      "m": 0.3048,
+      "mm": 304.8,
+      "cm": 30.48,
+      "in": 12
+    },
+    "in": {
+      "m": 0.0254,
+      "mm": 25.4,
+      "cm": 2.54,
+      "ft": 0.0833333
+    }
+  },
+  "geometry_type_aliases": {
+    "1D": {
+      "line": ["line", "rod", "bar", "segment", "1d", "one-dimensional"]
+    },
+    "2D": {
+      "plate": ["plate", "sheet", "panel", "slab", "2d", "two-dimensional"],
+      "membrane": ["membrane", "film", "thin-sheet"],
+      "disc": ["disc", "disk", "circle", "circular"],
+      "rectangle": ["rectangle", "rect", "rectangular", "square"]
+    },
+    "3D": {
+      "cube": ["cube", "box", "cubic", "3d", "three-dimensional"],
+      "box": ["box", "rectangular-box", "block"],
+      "beam": ["beam", "girder", "column", "structural"],
+      "cylinder": ["cylinder", "cylindrical", "tube", "pipe"],
+      "sphere": ["sphere", "spherical", "ball"],
+      "solid": ["solid", "body", "object", "structure"],
+      "rectangular": ["rectangular", "rect-solid"]
+    }
+  }
+}

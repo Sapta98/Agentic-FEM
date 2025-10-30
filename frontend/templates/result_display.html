@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Simulation Results</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			background-color: #1a1a1a;
+			color: #ffffff;
+			margin: 0;
+			padding: 20px;
+		}
+		
+		.results-header {
+			background: linear-gradient(135deg, #2c3e50, #34495e);
+			padding: 20px;
+			border-radius: 10px;
+			margin-bottom: 20px;
+			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+		}
+		
+		.results-header h2 {
+			margin: 0 0 10px 0;
+			color: #3498db;
+		}
+		
+		.status-indicator {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 15px;
+			border-radius: 5px;
+			margin: 10px 0;
+		}
+		
+		.status-indicator.success {
+			background-color: #27ae60;
+		}
+		
+		.status-indicator.error {
+			background-color: #e74c3c;
+		}
+		
+		.status-indicator.warning {
+			background-color: #f39c12;
+		}
+		
+		.status-icon {
+			font-size: 16px;
+		}
+		
+		.timestamp {
+			color: #95a5a6;
+			font-size: 14px;
+		}
+		
+		.visualization-section {
+			background: #2c2c2c;
+			padding: 20px;
+			border-radius: 10px;
+			margin-bottom: 20px;
+		}
+		
+		.visualization-section h3 {
+			color: #3498db;
+			margin-top: 0;
+		}
+		
+		.mesh-info, .field-info {
+			display: flex;
+			gap: 20px;
+			margin-bottom: 15px;
+		}
+		
+		.mesh-type, .mesh-dimension, .field-name, .field-units {
+			background: #34495e;
+			padding: 5px 10px;
+			border-radius: 5px;
+			font-size: 14px;
+		}
+		
+		.visualization-container {
+			margin: 15px 0;
+		}
+		
+		.visualization-controls {
+			margin-top: 10px;
+			display: flex;
+			gap: 10px;
+		}
+		
+		.btn {
+			padding: 8px 16px;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 14px;
+			transition: background-color 0.3s;
+		}
+		
+		.btn-primary {
+			background-color: #3498db;
+			color: white;
+		}
+		
+		.btn-primary:hover {
+			background-color: #2980b9;
+		}
+		
+		.btn-secondary {
+			background-color: #95a5a6;
+			color: white;
+		}
+		
+		.btn-secondary:hover {
+			background-color: #7f8c8d;
+		}
+		
+		.results-summary, .mesh-statistics, .field-statistics, .solver-information, .performance-metrics {
+			background: #2c2c2c;
+			padding: 20px;
+			border-radius: 10px;
+			margin-bottom: 20px;
+		}
+		
+		.results-summary h3, .mesh-statistics h3, .field-statistics h3, .solver-information h3, .performance-metrics h3 {
+			color: #3498db;
+			margin-top: 0;
+		}
+		
+		.summary-grid, .stats-grid, .info-grid, .metrics-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+			gap: 15px;
+		}
+		
+		.summary-item, .stat-item, .info-item, .metric-item {
+			background: #34495e;
+			padding: 10px;
+			border-radius: 5px;
+			display: flex;
+			flex-direction: column;
+		}
+		
+		.summary-label, .stat-label, .info-label, .metric-label {
+			font-weight: bold;
+			color: #ecf0f1;
+			margin-bottom: 5px;
+		}
+		
+		.summary-value, .stat-value, .info-value, .metric-value {
+			color: #3498db;
+		}
+		
+		.export-options {
+			background: #2c2c2c;
+			padding: 20px;
+			border-radius: 10px;
+			margin-bottom: 20px;
+		}
+		
+		.export-options h3 {
+			color: #3498db;
+			margin-top: 0;
+		}
+		
+		.export-buttons {
+			display: flex;
+			gap: 10px;
+			flex-wrap: wrap;
+		}
+		
+		.btn-export {
+			background-color: #e67e22;
+			color: white;
+		}
+		
+		.btn-export:hover {
+			background-color: #d35400;
+		}
+	</style>
+</head>
+<body>
+	<div class="results-header">
+		<h2>Simulation Results</h2>
+		<div class="status-indicator {status_class}">
+			<span class="status-icon">●</span>
+			<span class="status-text">Status: {status}</span>
+		</div>
+		{timestamp_html}
+	</div>
+
+	{mesh_visualization_html}
+	{field_visualization_html}
+	{results_summary_html}
+	{mesh_statistics_html}
+	{field_statistics_html}
+	{solver_info_html}
+	{performance_metrics_html}
+	{export_options_html}
+
+	<script>
+		function openInNewTab(url) {
+			window.open(url, '_blank');
+		}
+		
+		function downloadMesh() {
+			// Implementation for mesh download
+			console.log('Download mesh functionality');
+		}
+		
+		function downloadField() {
+			// Implementation for field data download
+			console.log('Download field data functionality');
+		}
+		
+		function exportResults(format) {
+			// Implementation for results export
+			console.log('Export results in format:', format);
+		}
+	</script>
+</body>
+</html>

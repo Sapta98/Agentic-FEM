@@ -1,0 +1,13 @@
+# FEniCS Requirements (Optional - install separately if needed)
+# Note: FEniCS is not available via pip and must be installed separately
+# See: https://fenicsproject.org/download/
+
+# These are the FEniCS packages that would be needed if FEniCS is installed
+# dolfin>=2019.1.0
+# fenics>=2019.1.0
+# ffc>=2019.1.0
+# mshr>=2019.1.0
+# ufl>=2019.1.0
+
+# For now, the application uses a mock FEniCS solver that provides
+# realistic-looking results for testing and demonstration purposes.

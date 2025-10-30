@@ -1,0 +1,269 @@
+{
+  "version": "3.0.0",
+  "description": "Enhanced boundary condition templates with precise location mapping and physics-based classification. Supports intuitive location names (left, right, top, bottom) and automatic BC type detection.",
+  "physics_types": {
+    "heat_transfer": {
+      "description": "Heat transfer boundary conditions",
+      "templates": [
+        {
+          "name": "Fixed Temperature",
+          "type": "dirichlet",
+          "description": "Prescribed temperature on boundary",
+          "parameters": {
+            "location": "",
+            "value": "",
+            "units": "K"
+          },
+          "validation": {
+            "required_fields": ["location", "value"],
+            "value_range": [0.0, 2000.0],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Heat Flux",
+          "type": "neumann",
+          "description": "Prescribed heat flux on boundary (positive outward)",
+          "parameters": {
+            "location": "",
+            "value": "",
+            "units": "W/m^2"
+          },
+          "validation": {
+            "required_fields": ["location", "value"],
+            "value_range": [-1.0e6, 1.0e6],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Convection",
+          "type": "robin",
+          "description": "Convective boundary: q = h (T - T_inf)",
+          "parameters": {
+            "location": "",
+            "value": { "h": "", "Tinf": "" },
+            "units": { "h": "W/(m^2·K)", "Tinf": "K" }
+          },
+          "validation": {
+            "required_fields": ["location", "value.h", "value.Tinf"],
+            "h_range": [0.0, 1.0e5],
+            "Tinf_range": [0.0, 2000.0],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Radiation (linearized)",
+          "type": "robin",
+          "description": "Linearized radiative exchange: q ≈ h_rad (T - T_inf)",
+          "parameters": {
+            "location": "",
+            "value": { "epsilon": "", "Tinf": "", "sigma": 5.670374419e-8 },
+            "units": { "epsilon": "dimensionless", "Tinf": "K", "sigma": "W/(m^2·K^4)" }
+          },
+          "notes": "Your solver should compute h_rad = 4 * epsilon * sigma * Tinf^3 (or use current T).",
+          "validation": {
+            "required_fields": ["location", "value.epsilon", "value.Tinf"],
+            "epsilon_range": [0.0, 1.0],
+            "Tinf_range": [0.0, 2000.0],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Insulated",
+          "type": "neumann",
+          "description": "No heat flux (adiabatic): q = 0",
+          "parameters": {
+            "location": "",
+            "value": 0.0
+          },
+          "validation": {
+            "required_fields": ["location"],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Temperature",
+          "type": "dirichlet",
+          "description": "Prescribed temperature (enhanced parser detection)",
+          "parameters": {
+            "location": "",
+            "value": "",
+            "units": "K"
+          },
+          "validation": {
+            "required_fields": ["location", "value"],
+            "value_range": [0.0, 2000.0],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        }
+      ]
+    },
+    "solid_mechanics": {
+      "description": "Solid mechanics boundary conditions",
+      "templates": [
+        {
+          "name": "Fixed Displacement",
+          "type": "dirichlet",
+          "description": "Prescribed displacement vector on boundary",
+          "parameters": {
+            "location": "",
+            "value": [],
+            "units": "m"
+          },
+          "notes": "Provide [ux, uy, uz]; missing components default to 0 in lower dimensions.",
+          "validation": {
+            "required_fields": ["location"],
+            "component_range": [-10.0, 10.0],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Fixed Support",
+          "type": "dirichlet",
+          "description": "Fully constrained boundary (u=0)",
+          "parameters": {
+            "location": "",
+            "value": [0.0, 0.0, 0.0]
+          },
+          "validation": {
+            "required_fields": ["location"],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Traction",
+          "type": "neumann",
+          "description": "Applied surface traction vector",
+          "parameters": {
+            "location": "",
+            "value": [],
+            "units": "Pa"
+          },
+          "notes": "Value is a traction vector [tx, ty, tz] in Pa.",
+          "validation": {
+            "required_fields": ["location", "value"],
+            "component_range": [-1.0e9, 1.0e9],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Pressure",
+          "type": "pressure",
+          "description": "Applied outward pressure (scalar); traction = -p n",
+          "parameters": {
+            "location": "",
+            "value": "",
+            "units": "Pa"
+          },
+          "validation": {
+            "required_fields": ["location", "value"],
+            "value_range": [-1.0e9, 1.0e9],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Roller Support",
+          "type": "dirichlet",
+          "description": "Constrain displacement along a direction (e.g., normal)",
+          "parameters": {
+            "location": "",
+            "value": { "mode": "normal", "components": [] }
+          },
+          "notes": "Parser should convert this to component-wise Dirichlet on V.sub(i). For 'normal', project to facet normal.",
+          "validation": {
+            "required_fields": ["location", "value.mode"],
+            "valid_modes": ["x", "y", "z", "normal"],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Free Surface",
+          "type": "neumann_zero",
+          "description": "Zero traction (do nothing in forms)",
+          "parameters": {
+            "location": ""
+          },
+          "validation": {
+            "required_fields": ["location"],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Fixed",
+          "type": "dirichlet",
+          "description": "Fixed boundary condition (displacement = 0) - enhanced parser detection",
+          "parameters": {
+            "location": "",
+            "value": [0.0, 0.0, 0.0]
+          },
+          "validation": {
+            "required_fields": ["location"],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        },
+        {
+          "name": "Free",
+          "type": "neumann",
+          "description": "Free boundary condition (zero traction) - enhanced parser detection",
+          "parameters": {
+            "location": "",
+            "value": [0.0, 0.0, 0.0]
+          },
+          "validation": {
+            "required_fields": ["location"],
+            "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
+          }
+        }
+      ]
+    }
+  },
+
+  "boundary_type_descriptions": {
+    "dirichlet": "Prescribes the primary variable value on the boundary.",
+    "neumann": "Prescribes flux/traction on the boundary.",
+    "pressure": "Scalar pressure loading: t = -p n.",
+    "robin": "Combination of Dirichlet and Neumann; used for convection/radiation.",
+    "neumann_zero": "Zero natural BC; no contribution to the weak form.",
+    "coupled": "High-level template; parser expands into multiple physics-specific BCs."
+  },
+
+  "canonical_locations": ["left", "right", "top", "bottom", "front", "back", "all"],
+
+  "aliases": {
+    "1D": {
+      "start": "left",
+      "end": "right",
+      "one_end": "left",
+      "other_end": "right",
+      "both_ends": "all",
+      "all": "all",
+      "entire": "all"
+    },
+    "2D": {
+      "left": "left",
+      "right": "right",
+      "bottom": "bottom",
+      "top": "top",
+      "one_side": "left",
+      "opposite_side": "right",
+      "all_sides": "all",
+      "all": "all",
+      "entire": "all",
+      "complete": "all"
+    },
+    "3D": {
+      "left": "left",
+      "right": "right",
+      "bottom": "bottom",
+      "top": "top",
+      "front": "front",
+      "back": "back",
+      "one_side": "left",
+      "opposite_side": "right",
+      "all_sides": "all",
+      "all": "all",
+      "entire": "all",
+      "complete": "all"
+    }
+  }
+}

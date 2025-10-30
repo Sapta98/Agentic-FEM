@@ -1,0 +1,108 @@
+{
+  "description": "Available geometries and their boundary locations for boundary condition mapping",
+  "geometries": {
+    "1d": {
+      "line": {
+        "available_boundaries": ["left", "right"],
+        "description": "1D line segment"
+      },
+      "rod": {
+        "available_boundaries": ["left", "right"],
+        "description": "1D rod/bar"
+      },
+      "bar": {
+        "available_boundaries": ["left", "right"],
+        "description": "1D bar"
+      }
+    },
+    "2d": {
+      "plate": {
+        "available_boundaries": ["left", "right", "top", "bottom"],
+        "description": "2D rectangular plate"
+      },
+      "membrane": {
+        "available_boundaries": ["left", "right", "top", "bottom"],
+        "description": "2D membrane"
+      },
+      "rectangle": {
+        "available_boundaries": ["left", "right", "top", "bottom"],
+        "description": "2D rectangle"
+      },
+      "square": {
+        "available_boundaries": ["left", "right", "top", "bottom"],
+        "description": "2D square"
+      },
+      "disc": {
+        "available_boundaries": ["circumference", "center"],
+        "description": "2D circular disc"
+      }
+    },
+    "3d": {
+      "cube": {
+        "available_boundaries": ["left", "right", "top", "bottom", "front", "back"],
+        "description": "3D cube"
+      },
+      "box": {
+        "available_boundaries": ["left", "right", "top", "bottom", "front", "back"],
+        "description": "3D rectangular box"
+      },
+      "beam": {
+        "available_boundaries": ["left", "right", "top", "bottom", "front", "back"],
+        "description": "3D beam"
+      },
+      "cylinder": {
+        "available_boundaries": ["top", "bottom", "curved surface"],
+        "description": "3D cylinder"
+      },
+      "sphere": {
+        "available_boundaries": ["surface", "center"],
+        "description": "3D sphere"
+      }
+    }
+  },
+  "location_mappings": {
+    "description": "Mappings from vague NLP locations to specific boundaries",
+    "vague_to_specific": {
+      "one side": "left",
+      "one end": "left",
+      "left side": "left",
+      "start": "left",
+      "opposite side": "right",
+      "other side": "right",
+      "opposite end": "right",
+      "other end": "right",
+      "right side": "right",
+      "end": "right",
+      "top": "top",
+      "upper": "top",
+      "top surface": "top",
+      "bottom": "bottom",
+      "lower": "bottom",
+      "bottom surface": "bottom",
+      "front": "front",
+      "back": "back",
+      "both sides": "all",
+      "all sides": "all",
+      "all ends": "all",
+      "entire boundary": "all",
+      "all": "all",
+      "all_boundary": "all_boundary"
+    }
+  },
+  "default_boundary_conditions": {
+    "description": "Default boundary conditions for unspecified boundaries based on physics type",
+    "heat_transfer": {
+      "type": "insulated",
+      "value": 0,
+      "bc_type": "neumann",
+      "description": "Zero heat flux (insulated)"
+    },
+    "solid_mechanics": {
+      "type": "free",
+      "value": 0,
+      "bc_type": "neumann",
+      "description": "Zero traction (free surface)"
+    }
+  }
+}
+
