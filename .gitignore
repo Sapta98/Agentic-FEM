@@ -218,3 +218,7 @@ nlp_parser/src/.env
 
 # Env files
 nlp_parser/src/.env
+
+# Env files
+.env
+nlp_parser/src/.env
