@@ -24,23 +24,31 @@ else
     PYTHON_CMD="./venv/bin/python"
 fi
 
-# Install/update requirements
-echo "📚 Installing/updating requirements..."
-pip install -r requirements.txt
+# Install/update requirements quietly
+echo "Checking requirements..."
+if $PYTHON_CMD -m pip install -q --disable-pip-version-check -r requirements.txt > /dev/null 2>&1; then
+    echo "all requirements available"
+else
+    echo "requirements installation failed" >&2
+fi
 
-# Install VTK.js if needed
-if [ ! -f "frontend/static/js/vtk.js" ]; then
-    echo "🎨 Installing VTK.js..."
-    npm install
-    
-    # Create js directory if it doesn't exist
+# Ensure node modules are available (quiet)
+if command -v npm >/dev/null 2>&1; then
+    if [ ! -d "node_modules" ]; then
+        # Prefer deterministic install when lockfile exists
+        if [ -f package-lock.json ]; then
+            npm ci --silent >/dev/null 2>&1 || true
+        else
+            npm install --silent >/dev/null 2>&1 || true
+        fi
+    fi
+fi
+
+# Install/copy VTK.js if needed (quiet)
+if [ ! -f "frontend/static/js/vtk.js" ] && [ -d "node_modules/vtk.js" ]; then
     mkdir -p frontend/static/js
-    
-    # Copy VTK.js to static directory
-    echo "📦 Copying VTK.js to static directory..."
-    cp node_modules/vtk.js/vtk.js frontend/static/js/vtk.js
-    cp node_modules/vtk.js/vtk.js.map frontend/static/js/vtk.js.map
-    echo "✅ VTK.js installed successfully"
+    cp node_modules/vtk.js/vtk.js frontend/static/js/vtk.js 2>/dev/null || true
+    cp node_modules/vtk.js/vtk.js.map frontend/static/js/vtk.js.map 2>/dev/null || true
 fi
 
 # Start the application

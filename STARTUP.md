@@ -5,7 +5,7 @@
 ### Prerequisites
 
 - Python 3.8+
-- Node.js (for VTK.js)
+- Node.js (installed via environment.yml or system) for VTK.js tooling
 
 ### 1. Automated Setup (Recommended)
 
@@ -13,7 +13,7 @@
 # Run the complete setup script
 ./setup.sh
 
-# Start the application
+# Start the application (start.sh will install node modules if missing)
 ./start.sh
 ```
 
@@ -27,10 +27,7 @@ source venv/bin/activate
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Install VTK.js
-npm install
-
-# Start the application
+# Start the application (start.sh will install node modules if missing)
 python -m uvicorn apps.main_app:app --host 0.0.0.0 --port 8080 --reload
 ```
 

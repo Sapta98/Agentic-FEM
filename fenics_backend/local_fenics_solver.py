@@ -6,34 +6,17 @@ import logging
 import numpy as np
 from typing import Dict, Any, Optional, List, Tuple
 from scipy.spatial import cKDTree
+from petsc4py import PETSc
+import dolfinx
+import basix
+from dolfinx import mesh
+from dolfinx.cpp.mesh import create_mesh
+from dolfinx.mesh import CellType
+from dolfinx.io import gmsh as gmshio
+from mpi4py import MPI
 
 logger = logging.getLogger(__name__)
-
-# Try to import FEniCSx
-try:
-	from petsc4py import PETSc
-	ScalarType = PETSc.ScalarType
-except Exception:
-	# fallback (real builds)
-	import numpy as np
-	ScalarType = np.float64
-
-try:
-	import dolfinx
-	import basix
-	from dolfinx import mesh
-	from dolfinx.cpp.mesh import create_mesh
-	from dolfinx.mesh import CellType
-	from dolfinx.io import gmsh
-	from mpi4py import MPI
-	FENICS_AVAILABLE = True
-	DOLFINX_AVAILABLE = True
-	logger.info("FEniCSx (dolfinx) is available")
-except ImportError as e:
-	FENICS_AVAILABLE = False
-	DOLFINX_AVAILABLE = False
-	logger.warning(f"FEniCSx not available: {e}")
-	logger.warning("FEniCSx not available - simulation will fail")
+ScalarType = PETSc.ScalarType
 
 class FEniCSSolver:
 	"""FEniCS-based PDE solver for finite element simulations"""
@@ -52,39 +35,39 @@ class FEniCSSolver:
 		"""Set GMSH model from simulation manager"""
 		self.gmsh_model = gmsh_model
 		if gmsh_model is not None:
-			logger.info(f"GMSH model set in FEniCS solver: {type(gmsh_model)}")
+			logger.debug(f"GMSH model set in FEniCS solver: {type(gmsh_model)}")
 		else:
 			logger.warning("GMSH model set to None in FEniCS solver")
 
 	def inspect_mesh_tags(self):
 		"""Inspect and log information about cell tags and facet tags"""
 		if self.cell_tags is not None:
-			logger.info("=== Cell Tags Information ===")
-			logger.info(f"Cell tags type: {type(self.cell_tags)}")
-			logger.info(f"Cell tags values shape: {self.cell_tags.values.shape}")
-			logger.info(f"Cell tags unique values: {np.unique(self.cell_tags.values)}")
-			logger.info(f"Cell tags indices shape: {self.cell_tags.indices.shape}")
+			logger.debug("=== Cell Tags Information ===")
+			logger.debug(f"Cell tags type: {type(self.cell_tags)}")
+			logger.debug(f"Cell tags values shape: {self.cell_tags.values.shape}")
+			logger.debug(f"Cell tags unique values: {np.unique(self.cell_tags.values)}")
+			logger.debug(f"Cell tags indices shape: {self.cell_tags.indices.shape}")
 			
 			# Show tag distribution
 			unique_tags, counts = np.unique(self.cell_tags.values, return_counts=True)
 			for tag, count in zip(unique_tags, counts):
-				logger.info(f"  Tag {tag}: {count} cells")
+				logger.debug(f"  Tag {tag}: {count} cells")
 		else:
-			logger.info("No cell tags available")
+			logger.debug("No cell tags available")
 			
 		if self.facet_tags is not None:
-			logger.info("=== Facet Tags Information ===")
-			logger.info(f"Facet tags type: {type(self.facet_tags)}")
-			logger.info(f"Facet tags values shape: {self.facet_tags.values.shape}")
-			logger.info(f"Facet tags unique values: {np.unique(self.facet_tags.values)}")
-			logger.info(f"Facet tags indices shape: {self.facet_tags.indices.shape}")
+			logger.debug("=== Facet Tags Information ===")
+			logger.debug(f"Facet tags type: {type(self.facet_tags)}")
+			logger.debug(f"Facet tags values shape: {self.facet_tags.values.shape}")
+			logger.debug(f"Facet tags unique values: {np.unique(self.facet_tags.values)}")
+			logger.debug(f"Facet tags indices shape: {self.facet_tags.indices.shape}")
 			
 			# Show tag distribution
 			unique_tags, counts = np.unique(self.facet_tags.values, return_counts=True)
 			for tag, count in zip(unique_tags, counts):
-				logger.info(f"  Tag {tag}: {count} facets")
+				logger.debug(f"  Tag {tag}: {count} facets")
 		else:
-			logger.info("No facet tags available")
+			logger.debug("No facet tags available")
 
 	def extract_solution_data(self, physics_type: str = "heat_transfer") -> Dict[str, Any]:
 		"""Extract solution data using DOLFINx topology directly"""
@@ -95,7 +78,7 @@ class FEniCSSolver:
 			logger.error("No dolfinx mesh (self.domain) available.")
 			return {"success": False, "status": "error", "message": "No dolfinx mesh available."}
 		
-		try:
+		if True:
 			u = self.solution
 			domain = self.domain
 			# Use DOLFINx mesh vertices for consistency with cell connectivity
@@ -106,7 +89,7 @@ class FEniCSSolver:
 			original_cells = self.original_mesh_data.get('cells', {})
 			original_faces = self.original_mesh_data.get('faces', [])
 			
-			logger.info(f"Using GMSH mesh: {len(gmsh_vertices)} vertices, {len(original_cells)} cell types, {len(original_faces)} faces")
+			logger.debug(f"Using GMSH mesh: {len(gmsh_vertices)} vertices, {len(original_cells)} cell types, {len(original_faces)} faces")
 			
 			# Get field info to determine field type
 			field_info = self._get_field_info(physics_type)
@@ -130,7 +113,7 @@ class FEniCSSolver:
 				# Calculate min and max values for proper colormap range
 				min_val = float(np.min(gmsh_solution_values))
 				max_val = float(np.max(gmsh_solution_values))
-				logger.info(f"Solution value range: {min_val:.3f} to {max_val:.3f}")
+				logger.debug(f"Solution value range: {min_val:.3f} to {max_val:.3f}")
 				
 				solution_data = {
 					"success": True,
@@ -222,12 +205,8 @@ class FEniCSSolver:
 					}
 				}
 			
-			logger.info(f"GMSH-based solution extracted: {len(solution_values)} DOFs mapped to {len(gmsh_vertices)} GMSH vertices")
-			return solution_data
-			
-		except Exception as e:
-			logger.error(f"Failed to extract solution from GMSH: {e}")
-			return {"success": False, "status": "error", "message": f"Solution extraction failed: {e}"}
+		logger.debug(f"GMSH-based solution extracted: {len(solution_values)} DOFs mapped to {len(gmsh_vertices)} GMSH vertices")
+		return solution_data
 
 	def _canon_loc(self, loc: Optional[str]) -> str:
 		loc = (loc or "").strip().lower()
@@ -408,7 +387,7 @@ class FEniCSSolver:
 		Run the simulation selected by `config` on the mesh described by `mesh_data`.
 		Returns a dict with solution/visualization payloads (from the solver).
 		"""
-		logger.info("Starting FEniCS/DOLFINx simulation")
+		logger.debug("Starting simulation")
 
 		# Store original mesh data for later use in solution extraction
 		self.original_mesh_data = mesh_data
@@ -420,68 +399,34 @@ class FEniCSSolver:
 			logger.warning("mesh_data has no recognized 'cells'; attempting to use top-level keys.")
 
 		# ---- create DOLFINx mesh using GMSH model from simulation manager ----
-		logger.info("Creating DOLFINx mesh from GMSH model...")
+		logger.debug("Creating DOLFINx mesh from GMSH model...")
 		
 		if self.gmsh_model is not None:
-			logger.info(f"Using GMSH model from simulation manager: {type(self.gmsh_model)}")
+			logger.debug(f"Using GMSH model from simulation manager: {type(self.gmsh_model)}")
 			# Use GMSH model directly with dolfinx.io.gmsh
-			try:
-				from mpi4py import MPI
-				from dolfinx.io import gmsh as gmshio
-				logger.info("Using GMSH model with dolfinx.io.gmsh.model_to_mesh")
-				
-				mesh_data = gmshio.model_to_mesh(
-					self.gmsh_model, 
-					MPI.COMM_SELF, 
-					rank=0
-				)
-				# Extract domain and tags from mesh_data
-				self.domain = mesh_data.mesh
-				self.cell_tags = mesh_data.cell_tags
-				self.facet_tags = mesh_data.facet_tags
-				
-				# Log information about cell tags and facet tags
-				logger.info(f"Cell tags: {self.cell_tags}")
-				logger.info(f"Cell tags values: {self.cell_tags.values}")
-				logger.info(f"Cell tags unique values: {np.unique(self.cell_tags.values)}")
-				
-				logger.info(f"Facet tags: {self.facet_tags}")
-				logger.info(f"Facet tags values: {self.facet_tags.values}")
-				logger.info(f"Facet tags unique values: {np.unique(self.facet_tags.values)}")
-				
-				# Log physical groups information
-				if hasattr(mesh_data, 'physical_groups'):
-					logger.info(f"Physical groups (from model_to_mesh): {mesh_data.physical_groups}")
-					for name, group in mesh_data.physical_groups.items():
-						logger.info(f"  {name}: dim={group.dim}, tag={group.tag}")
-				# Also print raw Gmsh physical groups (dim, tag, name, entities)
-				try:
-					import gmsh
-					pgs = gmsh.model.getPhysicalGroups()
-					logger.info("Gmsh physical groups:")
-					for (dim, tag) in pgs:
-						name = ""
-						try:
-							name = gmsh.model.getPhysicalName(dim, tag) or ""
-						except Exception:
-							pass
-						entities = []
-						try:
-							entities = gmsh.model.getEntitiesForPhysicalGroup(dim, tag)
-						except Exception:
-							pass
-						logger.info(f"  dim={dim}, tag={tag}, name='{name}', entities={entities}")
-				except Exception as _ex:
-					logger.debug(f"Could not query gmsh physical groups directly: {_ex}")
-				
-				# Inspect mesh tags for detailed information
-				self.inspect_mesh_tags()
- 
-				logger.info(f"Successfully created mesh from GMSH model: {self.domain.topology.dim}D mesh with {self.domain.geometry.x.shape[0]} vertices")
-				
-			except Exception as e:
-				logger.error(f"Failed to create mesh from GMSH model: {e}")
-				raise RuntimeError(f"Failed to create mesh from GMSH model: {e}")
+			logger.debug("Using GMSH model with dolfinx.io.gmsh.model_to_mesh")
+			mesh_data = gmshio.model_to_mesh(
+				self.gmsh_model, 
+				MPI.COMM_SELF, 
+				rank=0
+			)
+			# Extract domain and tags from mesh_data
+			self.domain = mesh_data.mesh
+			self.cell_tags = mesh_data.cell_tags
+			self.facet_tags = mesh_data.facet_tags
+			
+			# Log information about cell tags and facet tags
+			logger.debug(f"Cell tags: {self.cell_tags}")
+			logger.debug(f"Cell tags values: {self.cell_tags.values}")
+			logger.debug(f"Cell tags unique values: {np.unique(self.cell_tags.values)}")
+			
+			logger.debug(f"Facet tags: {self.facet_tags}")
+			logger.debug(f"Facet tags values: {self.facet_tags.values}")
+			logger.debug(f"Facet tags unique values: {np.unique(self.facet_tags.values)}")
+			
+			# Inspect mesh tags for detailed information
+			self.inspect_mesh_tags()
+			logger.debug(f"Mesh ready: {self.domain.topology.dim}D, vertices={self.domain.geometry.x.shape[0]}")
 		else:
 			logger.warning("No GMSH model available from simulation manager")
 
@@ -492,30 +437,26 @@ class FEniCSSolver:
 		gdim = int(self.domain.geometry.dim)
 		nvtx = int(self.domain.geometry.x.shape[0])
 		self.mesh_data = mesh_data  # keep original for inverse mapping & viz
-		logger.info(f"Mesh created: gdim={gdim}, tdim={tdim}, vertices={nvtx}, "
-					f"cells={self.domain.topology.index_map(tdim).size_global}")
+		logger.debug(f"Mesh created: gdim={gdim}, tdim={tdim}, vertices={nvtx}, cells={self.domain.topology.index_map(tdim).size_global}")
 
 		# ---- config parsing ----
 		pde_config = (config or {}).get("pde_config", {}) or {}
 		
-		# Log the PDE config received by FEniCS solver
-		logger.info("=" * 60)
-		logger.info("FEniCS SOLVER RECEIVED PDE CONFIG")
-		logger.info("=" * 60)
-		logger.info(f"Physics Type: {pde_config.get('physics_type', 'NOT SET')}")
-		logger.info(f"Material Properties: {pde_config.get('material_properties', 'NOT SET')}")
-		logger.info(f"Raw Boundary Conditions: {pde_config.get('boundary_conditions', 'NOT SET')}")
-		logger.info("=" * 60)
+		# Log the PDE config received by FEniCS solver (compact)
+		logger.debug("FEniCS solver received PDE config")
+		logger.debug(f"Physics Type: {pde_config.get('physics_type', 'NOT SET')}")
+		logger.debug(f"Material Properties: {pde_config.get('material_properties', 'NOT SET')}")
+		logger.debug(f"Raw Boundary Conditions: {pde_config.get('boundary_conditions', 'NOT SET')}")
 		
 		raw_bcs = pde_config.get("boundary_conditions", [])
 		normalized = self.normalize_bcs_by_physics(pde_config.get("physics_type"), raw_bcs, 3)
 		pde_config["boundary_conditions"] = normalized
 		
 		# Log normalized boundary conditions
-		logger.info("NORMALIZED BOUNDARY CONDITIONS:")
+		logger.debug("Normalized boundary conditions:")
 		for i, bc in enumerate(normalized):
-			logger.info(f"  BC {i+1}: {bc}")
-		logger.info("=" * 60)
+			logger.debug(f"  BC {i+1}: {bc}")
+		logger.debug("=" * 60)
 		
 		physics_type = (pde_config.get("physics_type", "heat_transfer") or "").strip().lower()
 		family = (pde_config.get("family", "Lagrange") or "Lagrange").strip()  # "P" also fine
@@ -539,7 +480,7 @@ class FEniCSSolver:
 
 	def _solve_heat_transfer(self, pde_config: Dict[str, Any]) -> Dict[str, Any]:
 		"""Solve steady heat conduction: -div(k ∇u) = 0 with boundary conditions using DOLFINx (robust)."""
-		logger.info("Solving heat transfer equation with DOLFINx")
+		logger.debug("Solving heat transfer")
 		try:
 			from dolfinx import fem
 			from dolfinx.fem.petsc import LinearProblem
@@ -621,7 +562,7 @@ class FEniCSSolver:
 
 	def _solve_solid_mechanics(self, pde_config: Dict[str, Any]) -> Dict[str, Any]:
 		"""Small-strain linear elasticity in 1D/2D/3D with Dirichlet/Neumann/pressure BCs."""
-		logger.info("Solving solid mechanics with DOLFINx")
+		logger.debug("Solving solid mechanics with DOLFINx")
 		try:
 			from dolfinx import fem, mesh as _mesh
 			from dolfinx.fem.petsc import LinearProblem
@@ -648,8 +589,8 @@ class FEniCSSolver:
 			element = basix.ufl.element(family, m.basix_cell(), degree, shape=(gdim,))
 			V = fem.functionspace(m, element)
 			
-			logger.info(f"Created function space: family={family}, degree={degree}, gdim={gdim}")
-			logger.info(f"Function space V: {V}")
+			logger.debug(f"Created function space: family={family}, degree={degree}, gdim={gdim}")
+			logger.debug(f"Function space V: {V}")
 
 			# --- trial/test ---
 			u = ufl.TrialFunction(V)
@@ -664,11 +605,11 @@ class FEniCSSolver:
 			if material_props:
 				E = float(material_props.get("youngs_modulus", material_props.get("E", 1.0)))
 				nu = float(material_props.get("poisson_ratio", material_props.get("nu", 0.3)))
-				logger.info(f"Using material properties: E={E:.2e} Pa, nu={nu:.3f}")
+				logger.debug(f"Using material properties: E={E:.2e} Pa, nu={nu:.3f}")
 			else:
 				E = float(mat.get("E", 1.0))
 				nu = float(mat.get("nu", 0.3))
-				logger.info(f"Using fallback material properties: E={E:.2e} Pa, nu={nu:.3f}")
+				logger.debug(f"Using fallback material properties: E={E:.2e} Pa, nu={nu:.3f}")
 			
 			plane = (mat.get("plane", "strain") or "strain").lower() if tdim == 2 else None
 			mu = E / (2.0 * (1.0 + nu))
@@ -893,7 +834,7 @@ class FEniCSSolver:
 				for name, group in self.mesh_data.physical_groups.items():
 					if group.dim == fdim:  # Only facet groups
 						physical_group_mapping[name] = group.tag
-						logger.info(f"Physical group mapping: '{name}' -> tag {group.tag}")
+						logger.debug(f"Physical group mapping (fast path): '{name}' -> tag {group.tag}")
 			
 			for bc in bc_list:
 				btype = (bc.get("type") or "").strip().lower()
@@ -910,7 +851,7 @@ class FEniCSSolver:
 				tag_id = None
 				if loc in physical_group_mapping:
 					tag_id = physical_group_mapping[loc]
-					logger.info(f"Using physical group mapping: '{loc}' -> tag {tag_id}")
+					logger.debug(f"Using physical group mapping: '{loc}' -> tag {tag_id}")
 				else:
 					# Fall back to legacy mapping
 					loc_alias = {
@@ -927,10 +868,10 @@ class FEniCSSolver:
 					loc_name = loc_alias.get(loc, loc)
 					if loc_name in physical_group_mapping:
 						tag_id = physical_group_mapping[loc_name]
-						logger.info(f"Using physical group mapping (alias): '{loc}' -> '{loc_name}' -> tag {tag_id}")
+						logger.debug(f"Using physical group mapping (alias): '{loc}' -> '{loc_name}' -> tag {tag_id}")
 					elif loc_name in name_to_tag:
 						tag_id = name_to_tag[loc_name]
-						logger.info(f"Using legacy mapping: '{loc}' -> '{loc_name}' -> tag {tag_id}")
+						logger.debug(f"Using legacy mapping: '{loc}' -> '{loc_name}' -> tag {tag_id}")
 				
 				if tag_id is not None:
 					facets = facet_tags.find(tag_id)
@@ -942,10 +883,10 @@ class FEniCSSolver:
 								val = float(bc.get("value", 0.0))
 								# Get coordinates of nodes where BC is applied
 								bc_coords = m.geometry.x[dofs]
-								logger.info(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' (tag {tag_id}) with value {val}")
-								logger.info(f"[{physics_type}] {dofs.size} DOFs constrained at coordinates:")
+								logger.debug(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' (tag {tag_id}) with value {val}")
+								logger.debug(f"[{physics_type}] {dofs.size} DOFs constrained at coordinates:")
 								for i, coord in enumerate(bc_coords):
-									logger.info(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
+									logger.debug(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
 								bcs_dirichlet.append(fem.dirichletbc(ScalarType(val), dofs, V))
 						elif physics_type == "solid_mechanics":
 							# Vector field - collapse subspaces to avoid coordinate tabulation error
@@ -960,10 +901,10 @@ class FEniCSSolver:
 									if dofs_i.size:
 										# Get coordinates of nodes where BC is applied
 										bc_coords = m.geometry.x[dofs_i]
-										logger.info(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' (tag {tag_id}) component {i} with value {vec[0]}")
-										logger.info(f"[{physics_type}] {dofs_i.size} DOFs constrained at coordinates:")
+										logger.debug(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' (tag {tag_id}) component {i} with value {vec[0]}")
+										logger.debug(f"[{physics_type}] {dofs_i.size} DOFs constrained at coordinates:")
 										for j, coord in enumerate(bc_coords):
-											logger.info(f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f})")
+											logger.debug(f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f})")
 										bcs_dirichlet.append(fem.dirichletbc(ScalarType(vec[0]), dofs_i, V.sub(i)))
 							else:
 								# Apply different values to each component
@@ -974,10 +915,10 @@ class FEniCSSolver:
 									if dofs_i.size:
 										# Get coordinates of nodes where BC is applied
 										bc_coords = m.geometry.x[dofs_i]
-										logger.info(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' (tag {tag_id}) component {i} with value {vec[i] if i < vec.size else 0.0}")
-										logger.info(f"[{physics_type}] {dofs_i.size} DOFs constrained at coordinates:")
+										logger.debug(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' (tag {tag_id}) component {i} with value {vec[i] if i < vec.size else 0.0}")
+										logger.debug(f"[{physics_type}] {dofs_i.size} DOFs constrained at coordinates:")
 										for j, coord in enumerate(bc_coords):
-											logger.info(f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f})")
+											logger.debug(f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f})")
 										bcs_dirichlet.append(fem.dirichletbc(ScalarType(vec[i] if i < vec.size else 0.0), dofs_i, V.sub(i)))
 				else:
 					# If no matching tag name, silently skip (or fall back if you want)
@@ -1031,7 +972,7 @@ class FEniCSSolver:
 				span_long = gmax[longitudinal_axis] - gmin[longitudinal_axis]
 				# Use a tight tolerance near end faces to avoid overlap
 				atol_face = max(1e-12, float(span_long) * 1e-12)
-				logger.info(f"[{physics_type}] Using cylinder Z-axis mapping for '{loc}', face_tol={atol_face:.3e}")
+				logger.debug(f"[{physics_type}] Using cylinder Z-axis mapping for '{loc}', face_tol={atol_face:.3e}")
 				
 				# For cylinder: top/bottom are the end faces at min/max of the longitudinal axis
 				if loc in ("top", "y_max", "z_max"):
@@ -1063,7 +1004,7 @@ class FEniCSSolver:
 
 		# Fast path: Dirichlet-only, no facet tagging
 		if not has_facet_terms:
-			logger.info(f"[{physics_type}] Processing {len(bc_list)} boundary conditions in fast path (Dirichlet-only)")
+			logger.debug(f"[{physics_type}] Processing {len(bc_list)} boundary conditions in fast path (Dirichlet-only)")
 			
 			# Try to use physical groups for boundary mapping in fast path too
 			physical_group_mapping = {}
@@ -1071,38 +1012,38 @@ class FEniCSSolver:
 				for name, group in self.mesh_data.physical_groups.items():
 					if group.dim == fdim:  # Only facet groups
 						physical_group_mapping[name] = group.tag
-						logger.info(f"Physical group mapping (fast path): '{name}' -> tag {group.tag}")
+						logger.debug(f"Physical group mapping (fast path): '{name}' -> tag {group.tag}")
 			
 			for bc_idx, bc in enumerate(bc_list):
 				btype = (bc.get("type") or "").strip().lower()
 				loc = bc.get("location", "all_boundary")
-				logger.info(f"[{physics_type}] BC {bc_idx+1}: type='{btype}', location='{loc}', value={bc.get('value', 'N/A')}")
+				logger.debug(f"[{physics_type}] BC {bc_idx+1}: type='{btype}', location='{loc}', value={bc.get('value', 'N/A')}")
 				
 				# Check if this is a Dirichlet BC for the current physics type
 				if physics_type == "heat_transfer" and btype not in ("temperature", "dirichlet", "fixed"):
-					logger.info(f"[{physics_type}] Skipping BC {bc_idx+1}: not a Dirichlet BC for heat_transfer")
+					logger.debug(f"[{physics_type}] Skipping BC {bc_idx+1}: not a Dirichlet BC for heat_transfer")
 					continue
 				elif physics_type == "solid_mechanics" and btype not in ("displacement", "dirichlet", "fixed"):
-					logger.info(f"[{physics_type}] Skipping BC {bc_idx+1}: not a Dirichlet BC for solid_mechanics")
+					logger.debug(f"[{physics_type}] Skipping BC {bc_idx+1}: not a Dirichlet BC for solid_mechanics")
 					continue
 				
 				# Try to use physical groups first, fall back to geometric predicates
 				dofs = None
 				if loc in physical_group_mapping:
 					tag_id = physical_group_mapping[loc]
-					logger.info(f"[{physics_type}] Using physical group mapping: '{loc}' -> tag {tag_id}")
+					logger.debug(f"[{physics_type}] Using physical group mapping: '{loc}' -> tag {tag_id}")
 					if facet_tags is not None:
 						facets = facet_tags.find(tag_id)
 						if facets is not None and facets.size:
 							dofs = fem.locate_dofs_topological(V, fdim, facets)
-							logger.info(f"[{physics_type}] Located {dofs.size} DOFs using physical group '{loc}'")
+							logger.debug(f"[{physics_type}] Located {dofs.size} DOFs using physical group '{loc}'")
 				
 				if dofs is None or dofs.size == 0:
 					# Fall back to geometric predicates
 					pred = predicate_for(loc)
-					logger.info(f"[{physics_type}] Using geometric predicate for location '{loc}'")
+					logger.debug(f"[{physics_type}] Using geometric predicate for location '{loc}'")
 					dofs = fem.locate_dofs_geometrical(V, pred)
-					logger.info(f"[{physics_type}] Located {dofs.size} DOFs using geometric predicate")
+					logger.debug(f"[{physics_type}] Located {dofs.size} DOFs using geometric predicate")
 				
 				if dofs.size == 0:
 					logger.warning(f"[{physics_type}] Dirichlet: no DOFs at '{loc}', skipping BC {bc_idx+1}")
@@ -1114,20 +1055,20 @@ class FEniCSSolver:
 					# Get coordinates of nodes where BC is applied (use dof coordinates for correctness)
 					dof_coords = V.tabulate_dof_coordinates().reshape((-1, gdim))
 					bc_coords = dof_coords[dofs]
-					logger.info(f"[{physics_type}] ==========================================")
-					logger.info(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' with value {val}")
-					logger.info(f"[{physics_type}] {dofs.size} DOFs constrained at coordinates:")
+					logger.debug(f"[{physics_type}] ==========================================")
+					logger.debug(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' with value {val}")
+					logger.debug(f"[{physics_type}] {dofs.size} DOFs constrained at coordinates:")
 					# Print first 10 and last 10 coordinates to avoid too much output
 					max_print = min(10, len(bc_coords))
 					for i in range(max_print):
 						coord = bc_coords[i]
-						logger.info(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
+						logger.debug(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
 					if len(bc_coords) > 20:
-						logger.info(f"  ... ({len(bc_coords) - 20} more coordinates) ...")
+						logger.debug(f"  ... ({len(bc_coords) - 20} more coordinates) ...")
 						for i in range(max(0, len(bc_coords) - 10), len(bc_coords)):
 							coord = bc_coords[i]
-							logger.info(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
-					logger.info(f"[{physics_type}] ==========================================")
+							logger.debug(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
+					logger.debug(f"[{physics_type}] ==========================================")
 					bcs_dirichlet.append(fem.dirichletbc(ScalarType(val), dofs, V))
 				elif physics_type == "solid_mechanics":
 					# Vector field
@@ -1139,34 +1080,34 @@ class FEniCSSolver:
 							# Collapse the subspace to create a new function space with its own coordinate mapping
 							V_i, _ = V.sub(i).collapse()
 							dofs_i = fem.locate_dofs_geometrical(V_i, pred)
-						if dofs_i.size:
-							# Get coordinates of nodes where BC is applied (use dof coordinates for correctness)
-							dof_coords = V_i.tabulate_dof_coordinates().reshape((-1, gdim))
-							bc_coords = dof_coords[dofs_i]
-							logger.info(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' component {i} with value {vec[0]}")
-							logger.info(f"[{physics_type}] {dofs_i.size} DOFs constrained at coordinates:")
-							for j, coord in enumerate(bc_coords):
-								logger.info(f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f})")
-							bcs_dirichlet.append(fem.dirichletbc(ScalarType(vec[0]), dofs_i, V.sub(i)))
+							if dofs_i.size:
+								# Get coordinates of nodes where BC is applied (use dof coordinates for correctness)
+								dof_coords = V_i.tabulate_dof_coordinates().reshape((-1, gdim))
+								bc_coords = dof_coords[dofs_i]
+								logger.debug(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' component {i} with value {vec[0]}")
+								logger.debug(f"[{physics_type}] {dofs_i.size} DOFs constrained at coordinates:")
+								for j, coord in enumerate(bc_coords):
+									logger.debug(f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f})")
+								bcs_dirichlet.append(fem.dirichletbc(ScalarType(vec[0]), dofs_i, V.sub(i)))
 					else:
 						# Apply different values to each component
 						for i in range(gdim):
 							# Collapse the subspace to create a new function space with its own coordinate mapping
 							V_i, _ = V.sub(i).collapse()
 							dofs_i = fem.locate_dofs_geometrical(V_i, pred)
-						if dofs_i.size:
-							# Get coordinates of nodes where BC is applied (use dof coordinates for correctness)
-							dof_coords = V_i.tabulate_dof_coordinates().reshape((-1, gdim))
-							bc_coords = dof_coords[dofs_i]
-							logger.info(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' component {i} with value {vec[i] if i < vec.size else 0.0}")
-							logger.info(f"[{physics_type}] {dofs_i.size} DOFs constrained at coordinates:")
-							for j, coord in enumerate(bc_coords):
-								logger.info(f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f})")
-							bcs_dirichlet.append(fem.dirichletbc(ScalarType(vec[i] if i < vec.size else 0.0), dofs_i, V.sub(i)))
+							if dofs_i.size:
+								# Get coordinates of nodes where BC is applied (use dof coordinates for correctness)
+								dof_coords = V_i.tabulate_dof_coordinates().reshape((-1, gdim))
+								bc_coords = dof_coords[dofs_i]
+								logger.debug(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' component {i} with value {vec[i] if i < vec.size else 0.0}")
+								logger.debug(f"[{physics_type}] {dofs_i.size} DOFs constrained at coordinates:")
+								for j, coord in enumerate(bc_coords):
+									logger.debug(f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs_i[j]}: ({coord[0]:.6f})")
+								bcs_dirichlet.append(fem.dirichletbc(ScalarType(vec[i] if i < vec.size else 0.0), dofs_i, V.sub(i)))
 			return bcs_dirichlet, a_extra, L_extra, dx, ds
 
 		# General path: need facet tags
-		logger.info(f"[{physics_type}] Processing {len(bc_list)} boundary conditions in general path (with facet terms)")
+		logger.debug(f"[{physics_type}] Processing {len(bc_list)} boundary conditions in general path (with facet terms)")
 		loc_to_facets = {}
 		used_locations = []
 		for bc in bc_list:
@@ -1209,7 +1150,7 @@ class FEniCSSolver:
 				if group.dim == fdim:
 					pg_map[name] = int(group.tag)
 					try:
-						logger.info(f"[{physics_type}] Physical group available: '{name}' -> tag {group.tag}")
+						logger.debug(f"[{physics_type}] Physical group available: '{name}' -> tag {group.tag}")
 					except Exception:
 						pass
 		# Choose subdomain data priority: gmsh facet_tags (from model_to_mesh) > locally built meshtags > none
@@ -1224,7 +1165,7 @@ class FEniCSSolver:
 			if loc.strip().lower() == "circumference":
 				loc = "circular_boundary"
 			pred  = predicate_for(loc)
-			logger.info(f"[{physics_type}] Processing BC: type='{btype}', location='{loc}', value={bc.get('value', 'N/A')}")
+			logger.debug(f"[{physics_type}] Processing BC: type='{btype}', location='{loc}', value={bc.get('value', 'N/A')}")
 
 			# Dirichlet BCs
 			if physics_type == "heat_transfer" and btype in ("temperature", "dirichlet", "fixed"):
@@ -1251,7 +1192,7 @@ class FEniCSSolver:
 				# Finally, geometrical predicate
 				if dofs is None or dofs.size == 0:
 					dofs = fem.locate_dofs_geometrical(V, pred)
-				logger.info(f"[{physics_type}] Located {dofs.size} DOFs for location '{loc}'")
+				logger.debug(f"[{physics_type}] Located {dofs.size} DOFs for location '{loc}'")
 				if dofs.size == 0:
 					logger.warning(f"[{physics_type}] Dirichlet: no DOFs at '{loc}', skipping.")
 					continue
@@ -1264,20 +1205,20 @@ class FEniCSSolver:
 				# Get coordinates of nodes where BC is applied (use dof coordinates for correctness)
 				dof_coords = V.tabulate_dof_coordinates().reshape((-1, gdim))
 				bc_coords = dof_coords[dofs]
-				logger.info(f"[{physics_type}] ==========================================")
-				logger.info(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' with value {val}")
-				logger.info(f"[{physics_type}] {dofs.size} DOFs constrained at coordinates:")
+				logger.debug(f"[{physics_type}] ==========================================")
+				logger.debug(f"[{physics_type}] Applying BC '{bc.get('type', 'unknown')}' at '{loc}' with value {val}")
+				logger.debug(f"[{physics_type}] {dofs.size} DOFs constrained at coordinates:")
 				# Print first 10 and last 10 coordinates to avoid too much output
 				max_print = min(10, len(bc_coords))
 				for i in range(max_print):
 					coord = bc_coords[i]
-					logger.info(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
+					logger.debug(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
 				if len(bc_coords) > 20:
-					logger.info(f"  ... ({len(bc_coords) - 20} more coordinates) ...")
+					logger.debug(f"  ... ({len(bc_coords) - 20} more coordinates) ...")
 					for i in range(max(0, len(bc_coords) - 10), len(bc_coords)):
 						coord = bc_coords[i]
-						logger.info(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
-				logger.info(f"[{physics_type}] ==========================================")
+						logger.debug(f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f}, {coord[2]:.6f})" if gdim >= 3 else f"  DOF {dofs[i]}: ({coord[0]:.6f}, {coord[1]:.6f})" if gdim >= 2 else f"  DOF {dofs[i]}: ({coord[0]:.6f})")
+				logger.debug(f"[{physics_type}] ==========================================")
 				bcs_dirichlet.append(fem.dirichletbc(ScalarType(val), dofs, V))
 				continue
 			elif physics_type == "solid_mechanics" and btype in ("displacement", "dirichlet", "fixed"):
@@ -1376,9 +1317,9 @@ class FEniCSSolver:
 					li, lj = locs[i], locs[j]
 					over = loc_to_dofs[li].intersection(loc_to_dofs[lj])
 					if over:
-						logger.warning(f"[{physics_type}] DOF overlap detected between '{li}' and '{lj}': {len(over)} shared DOFs")
+						logger.debug(f"[{physics_type}] DOF overlap detected between '{li}' and '{lj}': {len(over)} shared DOFs")
 					else:
-						logger.info(f"[{physics_type}] DOF sets are disjoint for '{li}' and '{lj}'")
+							logger.debug(f"[{physics_type}] DOF sets are disjoint for '{li}' and '{lj}'")
 		except Exception:
 			pass
 

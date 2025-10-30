@@ -73,14 +73,14 @@ class SimulationManager:
 						if generator.gmsh_generator.is_gmsh_initialized():
 							generator.gmsh_generator.cleanup_gmsh()
 						cleanup_info['gmsh_models_cleared'] += 1
-						logger.info(f"Cleared GMSH model for {mesh_dim}D generator")
+					logger.debug(f"Cleared GMSH model for {mesh_dim}D generator")
 			
 			# Clear cached mesh data in visualizers
 			if hasattr(self.mesh_viewer, 'mesh_visualizer'):
 				self.mesh_viewer.mesh_visualizer.current_mesh = None
 				self.mesh_viewer.mesh_visualizer.current_field = None
 				cleanup_info['visualizer_cache_cleared'] = True
-				logger.info("Cleared cached mesh data in mesh visualizer")
+				logger.debug("Cleared cached mesh data in mesh visualizer")
 			
 			# Clear field visualizer cache
 			if hasattr(self.field_visualizer, 'current_mesh'):
@@ -88,7 +88,7 @@ class SimulationManager:
 			if hasattr(self.field_visualizer, 'current_field'):
 				self.field_visualizer.current_field = None
 			
-			logger.info(f"Cleared all simulation context: {cleanup_info}")
+			logger.debug(f"Cleared all simulation context: {cleanup_info}")
 			return cleanup_info
 			
 		except Exception as e:
@@ -109,7 +109,7 @@ class SimulationManager:
 					generator = self.mesh_viewer.mesh_generator.generators[mesh_dim]
 					if hasattr(generator, 'gmsh_generator') and hasattr(generator.gmsh_generator, 'gmsh_model'):
 						self.current_gmsh_model = generator.gmsh_generator.gmsh_model
-						logger.info(f"Stored GMSH model from generator: {type(self.current_gmsh_model)}")
+						logger.debug(f"Stored GMSH model from generator: {type(self.current_gmsh_model)}")
 					else:
 						self.current_gmsh_model = None
 						logger.warning("GMSH model not available from generator")
@@ -130,7 +130,7 @@ class SimulationManager:
 		mesh_data = self._make_json_safe(mesh_data)
 		
 		self.current_mesh_data = mesh_data
-		logger.info(f"Stored mesh data with keys: {list(mesh_data.keys())}")
+		logger.debug(f"Stored mesh data with keys: {list(mesh_data.keys())}")
 
 	def _make_json_safe(self, obj):
 		"""Recursively convert objects to JSON-safe format"""
@@ -244,21 +244,21 @@ class SimulationManager:
 			# Store the parsed context in simulation manager
 			if result.get("updated_context"):
 				self.current_context = result["updated_context"]
-				logger.info(f"Stored context with keys: {list(self.current_context.keys())}")
+				logger.debug(f"Stored context with keys: {list(self.current_context.keys())}")
 				
 				# Apply boundary location mapping to the context immediately
 				if self.current_context.get("boundary_conditions"):
-					logger.info("Applying boundary location mapping to context")
+					logger.debug("Applying boundary location mapping to context")
 					mapped_bcs = self._map_boundary_locations(
 						self.current_context["boundary_conditions"], 
 						self.current_context.get("geometry_type", "")
 					)
 					self.current_context["boundary_conditions"] = mapped_bcs
-					logger.info(f"Applied boundary mapping: {len(mapped_bcs)} boundary conditions")
+					logger.debug(f"Applied boundary mapping: {len(mapped_bcs)} boundary conditions")
 			
 			if result.get("simulation_config"):
 				self.current_simulation_config = result["simulation_config"]
-				logger.info(f"Stored simulation config with keys: {list(self.current_simulation_config.keys())}")
+				logger.debug(f"Stored simulation config with keys: {list(self.current_simulation_config.keys())}")
 			
 			return {
 				"success": True,
@@ -277,11 +277,11 @@ class SimulationManager:
 	def solve_pde(self, config: Dict[str, Any], mesh_data: Dict[str, Any]) -> Dict[str, Any]:
 		"""Solve PDE using FEniCS solver with GMSH model"""
 		try:
-			logger.info("Solving PDE using FEniCS")
+			logger.info("Solving PDE")
 			
 			# Pass GMSH model to FEniCS solver if available
 			if self.current_gmsh_model is not None:
-				logger.info("Passing GMSH model to FEniCS solver")
+				logger.debug("Passing GMSH model to FEniCS solver")
 				# Set GMSH model in the solver using the dedicated method
 				self.fenics_solver.set_gmsh_model(self.current_gmsh_model)
 			else:
@@ -307,7 +307,7 @@ class SimulationManager:
 	def create_field_visualization(self, solution_data: Dict[str, Any], mesh_data: Dict[str, Any]) -> Dict[str, Any]:
 		"""Create field visualization from solution data"""
 		try:
-			logger.info("Creating field visualization")
+			logger.debug("Creating field visualization")
 			field_visualization_url = self.field_visualizer.create_field_visualization(solution_data, mesh_data)
 
 			return {
@@ -326,7 +326,7 @@ class SimulationManager:
 		try:
 			# Step 1: Use stored context or parse if needed
 			if self.current_context and self._is_context_complete(self.current_context):
-				logger.info("Using stored complete context")
+				logger.debug("Using stored complete context")
 				result = {
 					"action": "simulation_ready",
 					"simulation_config": self.current_simulation_config,
@@ -334,7 +334,7 @@ class SimulationManager:
 					"message": "Using stored complete context"
 				}
 			elif context and self._is_context_complete(context):
-				logger.info("Using provided complete context")
+				logger.debug("Using provided complete context")
 				result = {
 					"action": "simulation_ready",
 					"simulation_config": context.get("simulation_config", {}),
@@ -342,7 +342,7 @@ class SimulationManager:
 					"message": "Using provided complete context"
 				}
 			else:
-				logger.info("Parsing prompt for new simulation")
+				logger.debug("Parsing prompt for new simulation")
 				parse_result = self.parse_simulation_prompt(prompt, context)
 				if not parse_result["success"]:
 					return parse_result
@@ -360,10 +360,10 @@ class SimulationManager:
 
 			# Step 2: Use stored mesh data or provided mesh data
 			if self.current_mesh_data:
-				logger.info("Using stored mesh data for PDE solving")
+				logger.debug("Using stored mesh data for PDE solving")
 				mesh_data = self.current_mesh_data
 			elif existing_mesh_data:
-				logger.info("Using provided mesh data for PDE solving")
+				logger.debug("Using provided mesh data for PDE solving")
 				mesh_data = existing_mesh_data
 			else:
 				logger.warning("No mesh data available for simulation")
@@ -372,9 +372,9 @@ class SimulationManager:
 					"error": "No mesh data available. Please generate a mesh preview first, then try solving the PDE."
 				}
 			
-			logger.info(f"Mesh data keys: {list(mesh_data.keys())}")
-			logger.info(f"Mesh dimension: {mesh_data.get('mesh_dimension', 'unknown')}")
-			logger.info(f"Mesh vertices count: {len(mesh_data.get('vertices', []))}")
+			logger.debug(f"Mesh data keys: {list(mesh_data.keys())}")
+			logger.debug(f"Mesh dimension: {mesh_data.get('mesh_dimension', 'unknown')}")
+			logger.debug(f"Mesh vertices count: {len(mesh_data.get('vertices', []))}")
 			
 			mesh_result = {
 				"success": True,
@@ -393,17 +393,15 @@ class SimulationManager:
 			if "pde_config" not in simulation_config:
 				simulation_config["pde_config"] = {}
 			if context.get("material_properties"):
-				logger.info(f"Adding material properties to PDE config: {context['material_properties']}")
+				logger.debug(f"Adding material properties to PDE config: {context['material_properties']}")
 				simulation_config["pde_config"]["material_properties"] = context["material_properties"]
 			else:
 				logger.warning("No material properties found in context")
 			if context.get("boundary_conditions"):
 				# Debug: Log original boundary conditions before mapping
-				logger.info("=" * 60)
-				logger.info("ORIGINAL BOUNDARY CONDITIONS (before mapping)")
-				logger.info("=" * 60)
+				# reduce boundary condition logs to debug
 				for i, bc in enumerate(context["boundary_conditions"]):
-					logger.info(f"  Original BC {i+1}: {bc}")
+					logger.debug(f"Original BC {i+1}: {bc}")
 				
 				# First map vague locations to specific boundaries
 				mapped_bcs = self._map_boundary_locations(
@@ -412,11 +410,8 @@ class SimulationManager:
 				)
 				
 				# Debug: Log mapped boundary conditions
-				logger.info("=" * 60)
-				logger.info("MAPPED BOUNDARY CONDITIONS (after mapping)")
-				logger.info("=" * 60)
 				for i, bc in enumerate(mapped_bcs):
-					logger.info(f"  Mapped BC {i+1}: {bc}")
+					logger.debug(f"Mapped BC {i+1}: {bc}")
 				# Then add defaults for unspecified boundaries
 				processed_bcs = self._add_default_boundary_conditions(
 					mapped_bcs, 
@@ -430,48 +425,36 @@ class SimulationManager:
 				simulation_config["pde_config"]["physics_type"] = context["physics_type"]
 
 			# Log the complete PDE configuration for debugging
-			logger.info("=" * 80)
-			logger.info("FINAL PDE CONFIGURATION")
-			logger.info("=" * 80)
+			# compress final PDE log output
 			pde_config = simulation_config.get("pde_config", {})
 			
 			# Physics type
 			physics_type = pde_config.get("physics_type", "NOT SET")
-			logger.info(f"Physics Type: {physics_type}")
+			logger.debug(f"Physics Type: {physics_type}")
 			
 			# Material properties
 			material_props = pde_config.get("material_properties", {})
 			if material_props:
-				logger.info("Material Properties:")
 				for prop, value in material_props.items():
-					logger.info(f"  {prop}: {value}")
+					logger.debug(f"Material property {prop}={value}")
 			else:
 				logger.info("Material Properties: NOT SET")
 			
 			# Boundary conditions
 			boundary_conditions = pde_config.get("boundary_conditions", [])
 			if boundary_conditions:
-				logger.info("Boundary Conditions:")
 				for i, bc in enumerate(boundary_conditions):
-					bc_type = bc.get("type", "unknown")
-					location = bc.get("location", "unknown")
-					value = bc.get("value", "not specified")
-					bc_classification = bc.get("bc_type", "unknown")
-					confidence = bc.get("confidence", "unknown")
-					logger.info(f"  BC {i+1}: {bc_type} at {location} = {value} ({bc_classification} BC, confidence: {confidence})")
+					logger.debug(f"BC {i+1}: {bc}")
 			else:
 				logger.info("Boundary Conditions: NOT SET")
 			
 			# Additional PDE config fields
 			other_fields = {k: v for k, v in pde_config.items() if k not in ["physics_type", "material_properties", "boundary_conditions"]}
 			if other_fields:
-				logger.info("Other PDE Config Fields:")
 				for field, value in other_fields.items():
-					logger.info(f"  {field}: {value}")
+					logger.debug(f"PDE field {field}={value}")
 			
-			logger.info("=" * 80)
-			logger.info("END PDE CONFIGURATION")
-			logger.info("=" * 80)
+			# end reduced PDE logs
 
 			pde_result = self.solve_pde(simulation_config, mesh_result["mesh_data"])
 			if not pde_result["success"]:
@@ -485,29 +468,29 @@ class SimulationManager:
 				}
 
 			# Step 4: Create field visualization using GMSH mesh data from FEniCS solver
-			logger.info("Creating field visualization with GMSH mesh data")
+			logger.debug("Creating field visualization with GMSH mesh data")
 			solution_data = pde_result  # Solution data is now at the top level with GMSH structure
 			
 			# Use GMSH mesh data directly from FEniCS solver (no complex extraction needed)
 			mesh_data_for_visualization = mesh_result["mesh_data"]  # Original GMSH mesh data
 			
-			logger.info(f"Using GMSH mesh data: {len(mesh_data_for_visualization.get('vertices', []))} vertices")
-			logger.info(f"Solution data contains: {len(solution_data.get('coordinates', []))} coordinates, {len(solution_data.get('values', []))} values")
+			logger.debug(f"Using GMSH mesh data: {len(mesh_data_for_visualization.get('vertices', []))} vertices")
+			logger.debug(f"Solution data: {len(solution_data.get('coordinates', []))} coords, {len(solution_data.get('values', []))} values")
 			
 			# Create field visualization (includes mesh + field data with toggle option)
-			logger.info("Creating field visualization...")
+			logger.debug("Creating field visualization...")
 			field_visualization_url = self.field_visualizer.create_field_visualization(
 				solution_data,  # GMSH-structured solution data
 				mesh_data_for_visualization  # Original GMSH mesh data
 			)
-			logger.info(f"Field visualization URL: {field_visualization_url}")
+			logger.info(f"Field visualization ready: {field_visualization_url}")
 			
 			# Create mesh visualization (mesh preview only)
-			logger.info("Creating mesh visualization...")
+			logger.debug("Creating mesh visualization...")
 			mesh_visualization_url = self.mesh_visualizer.create_mesh_visualization(
 				mesh_data_for_visualization
 			)
-			logger.info(f"Mesh visualization URL: {mesh_visualization_url}")
+			logger.info(f"Mesh visualization ready: {mesh_visualization_url}")
 
 			return {
 				"success": True,
@@ -537,23 +520,23 @@ class SimulationManager:
 			'boundary_conditions'
 		]
 		
-		logger.info(f"Checking context completeness. Available keys: {list(context.keys())}")
+		logger.debug(f"Checking context completeness. Available keys: {list(context.keys())}")
 		
 		for field in required_fields:
 			value = context.get(field)
-			logger.info(f"Checking field '{field}': present={field in context}, value={value}, truthy={bool(value)}")
+			logger.debug(f"Checking field '{field}': present={field in context}, truthy={bool(value)}")
 			if not value:
 				logger.info(f"Context incomplete - missing or falsy: {field}")
 				return False
 		
 		# Check if boundary conditions is not empty
 		boundary_conditions = context.get('boundary_conditions', [])
-		logger.info(f"Final boundary_conditions check: type={type(boundary_conditions)}, value={boundary_conditions}, length={len(boundary_conditions) if isinstance(boundary_conditions, (list, dict)) else 'N/A'}")
+		logger.debug(f"Final boundary_conditions length={len(boundary_conditions) if isinstance(boundary_conditions, (list, dict)) else 'N/A'}")
 		if not boundary_conditions or len(boundary_conditions) == 0:
 			logger.info("Context incomplete - boundary_conditions is empty")
 			return False
 			
-		logger.info("Context is complete - all required fields present")
+		logger.debug("Context is complete")
 		return True
 
 	def _map_boundary_locations(self, bcs: list, geometry_type: str) -> list:
@@ -612,12 +595,12 @@ class SimulationManager:
 			if geometry_type in geometry_specific_mappings:
 				if location in geometry_specific_mappings[geometry_type]:
 					mapped_location = geometry_specific_mappings[geometry_type][location]
-					logger.info(f"Geometry-specific mapping for {geometry_type}: '{location}' → '{mapped_location}'")
+				logger.debug(f"Geometry-specific mapping for {geometry_type}: '{location}' → '{mapped_location}'")
 			
 			# Fallback to generic mapping
 			if not mapped_location and location in location_mappings:
 				mapped_location = location_mappings[location]
-				logger.info(f"Generic mapping: '{location}' → '{mapped_location}'")
+				logger.debug(f"Generic mapping: '{location}' → '{mapped_location}'")
 			
 			# Validate mapped location is available for this geometry
 			if mapped_location and (mapped_location in available_boundaries or mapped_location in ['all', 'all_boundary']):
@@ -630,33 +613,33 @@ class SimulationManager:
 					if value > 50:  # High temperature
 						if 'left' in available_boundaries:
 							mapped_bc['location'] = 'left'
-							logger.info(f"High temperature mapping: '{location}' (value: {value}) → 'left'")
+							logger.debug(f"High temperature mapping: '{location}' (value: {value}) → 'left'")
 						elif 'top' in available_boundaries:
 							mapped_bc['location'] = 'top'
-							logger.info(f"High temperature mapping: '{location}' (value: {value}) → 'top'")
+							logger.debug(f"High temperature mapping: '{location}' (value: {value}) → 'top'")
 					elif value < 50:  # Low temperature
 						if 'right' in available_boundaries:
 							mapped_bc['location'] = 'right'
-							logger.info(f"Low temperature mapping: '{location}' (value: {value}) → 'right'")
+							logger.debug(f"Low temperature mapping: '{location}' (value: {value}) → 'right'")
 						elif 'bottom' in available_boundaries:
 							mapped_bc['location'] = 'bottom'
-							logger.info(f"Low temperature mapping: '{location}' (value: {value}) → 'bottom'")
+							logger.debug(f"Low temperature mapping: '{location}' (value: {value}) → 'bottom'")
 				else:
 					# Fallback to keyword-based mapping
 					if 'hot' in location or 'high' in location:
 						if 'left' in available_boundaries:
 							mapped_bc['location'] = 'left'
-							logger.info(f"Keyword-based mapping: '{location}' → 'left'")
+							logger.debug(f"Keyword-based mapping: '{location}' → 'left'")
 						elif 'top' in available_boundaries:
 							mapped_bc['location'] = 'top'
-							logger.info(f"Keyword-based mapping: '{location}' → 'top'")
+							logger.debug(f"Keyword-based mapping: '{location}' → 'top'")
 					elif 'cold' in location or 'low' in location:
 						if 'right' in available_boundaries:
 							mapped_bc['location'] = 'right'
-							logger.info(f"Keyword-based mapping: '{location}' → 'right'")
+							logger.debug(f"Keyword-based mapping: '{location}' → 'right'")
 						elif 'bottom' in available_boundaries:
 							mapped_bc['location'] = 'bottom'
-							logger.info(f"Keyword-based mapping: '{location}' → 'bottom'")
+							logger.debug(f"Keyword-based mapping: '{location}' → 'bottom'")
 					else:
 						# Special handling for disc geometry
 						if geometry_type == 'disc' and len(bcs) == 2:
@@ -665,23 +648,23 @@ class SimulationManager:
 							if isinstance(value, (int, float)):
 								if value > 50:  # High temperature/force
 									mapped_bc['location'] = 'circumference'
-									logger.info(f"Disc high value mapping: '{location}' (value: {value}) → 'circumference'")
+									logger.debug(f"Disc high value mapping: '{location}' (value: {value}) → 'circumference'")
 								else:  # Low temperature/force
 									mapped_bc['location'] = 'center'
-									logger.info(f"Disc low value mapping: '{location}' (value: {value}) → 'center'")
+									logger.debug(f"Disc low value mapping: '{location}' (value: {value}) → 'center'")
 							else:
 								# Default for disc: alternate between circumference and center
 								circumference_count = sum(1 for bc in bcs if bc.get('location') == 'circumference')
 								if circumference_count == 0:
 									mapped_bc['location'] = 'circumference'
-									logger.info(f"Disc default mapping: '{location}' → 'circumference'")
+									logger.debug(f"Disc default mapping: '{location}' → 'circumference'")
 								else:
 									mapped_bc['location'] = 'center'
-									logger.info(f"Disc default mapping: '{location}' → 'center'")
+									logger.debug(f"Disc default mapping: '{location}' → 'center'")
 						else:
 							# Default: use first available boundary
 							mapped_bc['location'] = available_boundaries[0] if available_boundaries else 'left'
-							logger.info(f"Default mapping: '{location}' → '{mapped_bc['location']}'")
+							logger.debug(f"Default mapping: '{location}' → '{mapped_bc['location']}'")
 			
 			mapped_bcs.append(mapped_bc)
 		
@@ -700,7 +683,7 @@ class SimulationManager:
 		
 		# Skip if "all_boundary" is already specified
 		if 'all_boundary' in specified_locations or 'all' in specified_locations:
-			logger.info("All boundaries already specified, skipping defaults")
+			logger.debug("All boundaries already specified, skipping defaults")
 			return bcs
 		
 		# Get default BC from configuration
@@ -719,7 +702,7 @@ class SimulationManager:
 					'bc_type': default_bc_type,
 					'confidence': 0.5
 				})
-				logger.info(f"Added default {default_type} BC on {boundary}")
+				logger.debug(f"Added default {default_type} BC on {boundary}")
 		
 		return result
 
@@ -730,7 +713,8 @@ class SimulationManager:
 		from pathlib import Path
 		
 		try:
-			config_path = Path(__file__).parent.parent / "config" / "geometry_boundaries.json"
+			# Use project-root config path
+			config_path = Path(__file__).parents[2] / "config" / "geometry_boundaries.json"
 			with open(config_path, 'r') as f:
 				geometry_boundaries = json.load(f)
 			
@@ -740,7 +724,7 @@ class SimulationManager:
 					if geometry_type in geometry_boundaries['geometries'][dim_group]:
 						return geometry_boundaries['geometries'][dim_group][geometry_type].get('available_boundaries', [])
 		except Exception as e:
-			logger.warning(f"Could not load geometry boundaries config: {e}")
+			logger.debug(f"Could not load geometry boundaries config: {e}")
 		
 		# Fallback boundaries
 		defaults = {

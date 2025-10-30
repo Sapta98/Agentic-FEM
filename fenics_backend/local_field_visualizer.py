@@ -32,28 +32,28 @@ class FieldVisualizer:
 		Returns:
 		Path to generated HTML visualization file
 		"""
-		logger.info("Creating field visualization")
+		logger.debug("Creating field visualization")
 
 		# The solution data is now at the top level of the FEniCS result
 		self.solution_data = solution_result
 		
-		# Log the structure for debugging
-		logger.info(f"Solution result keys: {list(solution_result.keys())}")
-		logger.info(f"Solution data keys: {list(self.solution_data.keys())}")
-		logger.info(f"Coordinates length: {len(self.solution_data.get('coordinates', []))}")
-		logger.info(f"Values length: {len(self.solution_data.get('values', []))}")
-		logger.info(f"Cells length: {len(self.solution_data.get('cells', []))}")
+		# Log structure at debug level
+		logger.debug(f"Solution result keys: {list(solution_result.keys())}")
+		logger.debug(f"Solution data keys: {list(self.solution_data.keys())}")
+		logger.debug(f"Coordinates length: {len(self.solution_data.get('coordinates', []))}")
+		logger.debug(f"Values length: {len(self.solution_data.get('values', []))}")
+		logger.debug(f"Cells length: {len(self.solution_data.get('cells', []))}")
 		
 		# Debug: Log the actual values
 		if self.solution_data.get('values'):
-			logger.info(f"First 5 values: {self.solution_data.get('values')[:5]}")
-			logger.info(f"Last 5 values: {self.solution_data.get('values')[-5:]}")
+			logger.debug(f"First 5 values: {self.solution_data.get('values')[:5]}")
+			logger.debug(f"Last 5 values: {self.solution_data.get('values')[-5:]}")
 		else:
 			logger.warning("No values found in solution_data!")
 			logger.info(f"Solution data content: {self.solution_data}")
 		
 		# Use GMSH mesh data directly (now provided by FEniCS solver)
-		logger.info("Using GMSH mesh data from FEniCS solution")
+		logger.debug("Using GMSH mesh data from FEniCS solution")
 		self.mesh_data = {
 			'faces': solution_result.get('faces', []),
 			'cells': solution_result.get('cells', {}),
@@ -81,12 +81,12 @@ class FieldVisualizer:
 		cells = solution_result.get('cells', {})  # GMSH cells (dict format)
 		faces = solution_result.get('faces', [])  # GMSH faces
 		
-		logger.info(f"Using GMSH data: {len(coordinates)} vertices, {len(values)} values, {len(cells)} cell types, {len(faces)} faces")
+		logger.debug(f"Using GMSH data: {len(coordinates)} vertices, {len(values)} values, {len(cells)} cell types, {len(faces)} faces")
 		
 		# Handle mesh-only visualization (no solution data)
 		if not coordinates or not values:
-			logger.info(f"Empty solution data: coordinates={len(coordinates)}, values={len(values)}")
-			logger.info("Creating mesh-only visualization")
+			logger.debug(f"Empty solution data: coordinates={len(coordinates)}, values={len(values)}")
+			logger.debug("Creating mesh-only visualization")
 			return self._generate_mesh_only_html()
 
 		# Get field information
@@ -97,7 +97,7 @@ class FieldVisualizer:
 		# Calculate min/max values from actual field data
 		min_val = float(np.min(values))
 		max_val = float(np.max(values))
-		logger.info(f"Field value range: {min_val:.3f} to {max_val:.3f}")
+		logger.debug(f"Field value range: {min_val:.3f} to {max_val:.3f}")
 
 		# Use GMSH mesh data directly (no complex extraction needed)
 		mesh_data_js = {
@@ -106,7 +106,7 @@ class FieldVisualizer:
 			"cells": cells            # GMSH cells (dict format)
 		}
 		
-		logger.info(f"Using GMSH mesh data: {len(coordinates)} vertices, {len(faces)} faces, {len(cells)} cell types")
+		logger.debug(f"Using GMSH mesh data: {len(coordinates)} vertices, {len(faces)} faces, {len(cells)} cell types")
 
 		# Create lookup table in Python
 		lut_data = self._create_lookup_table(min_val, max_val, colormap="viridis")
@@ -150,11 +150,11 @@ class FieldVisualizer:
 		html_content = html_content.replace('{max_val}', str(max_val)) if 'max_val' in template_content else html_content
 
 		# FORCE REPLACEMENT - Debug what we're doing
-		logger.info(f"BEFORE REPLACEMENT:")
-		logger.info(f"  Template contains {{mesh_data_js}}: {'{mesh_data_js}' in template_content}")
-		logger.info(f"  Template contains {{field_data_js}}: {'{field_data_js}' in template_content}")
-		logger.info(f"  mesh_data_js_str: {mesh_data_js_str[:100]}...")
-		logger.info(f"  field_data_js_str: {field_data_js_str[:100]}...")
+		logger.debug("BEFORE REPLACEMENT:")
+		logger.debug(f"  Template contains {{mesh_data_js}}: {'{mesh_data_js}' in template_content}")
+		logger.debug(f"  Template contains {{field_data_js}}: {'{field_data_js}' in template_content}")
+		logger.debug(f"  mesh_data_js_str: {mesh_data_js_str[:100]}...")
+		logger.debug(f"  field_data_js_str: {field_data_js_str[:100]}...")
 		
 		# Replace the placeholders
 		html_content = html_content.replace('{mesh_data_js}', mesh_data_js_str)
@@ -162,11 +162,11 @@ class FieldVisualizer:
 		html_content = html_content.replace('{settings_js}', settings_js_str)
 		
 		# Debug after replacement
-		logger.info(f"AFTER REPLACEMENT:")
-		logger.info(f"  HTML contains meshData: {'meshData' in html_content}")
-		logger.info(f"  HTML contains fieldData: {'fieldData' in html_content}")
-		logger.info(f"  HTML contains cells: {'cells' in html_content}")
-		logger.info(f"  HTML contains line: {'line' in html_content}")
+		logger.debug("AFTER REPLACEMENT:")
+		logger.debug(f"  HTML contains meshData: {'meshData' in html_content}")
+		logger.debug(f"  HTML contains fieldData: {'fieldData' in html_content}")
+		logger.debug(f"  HTML contains cells: {'cells' in html_content}")
+		logger.debug(f"  HTML contains line: {'line' in html_content}")
 
 		return html_content
 
@@ -175,28 +175,28 @@ class FieldVisualizer:
 		try:
 			# Get frontend directory
 			frontend_dir = Path(__file__).parent.parent / "frontend" / "static"
-			logger.info(f"Frontend directory: {frontend_dir}")
-			logger.info(f"Frontend directory exists: {frontend_dir.exists()}")
+			logger.debug(f"Frontend directory: {frontend_dir}")
+			logger.debug(f"Frontend directory exists: {frontend_dir.exists()}")
 			
 			# Create directory if it doesn't exist
 			frontend_dir.mkdir(parents=True, exist_ok=True)
-			logger.info(f"Directory created/verified: {frontend_dir.exists()}")
+			logger.debug(f"Directory created/verified: {frontend_dir.exists()}")
 
 			# Generate unique filename
 			timestamp = int(time.time() * 1000)
 			filename = f"field_visualization_{timestamp}.html"
 			file_path = frontend_dir / filename
-			logger.info(f"File path: {file_path}")
+			logger.debug(f"File path: {file_path}")
 
 			# Write HTML content
-			logger.info(f"Writing HTML content ({len(html_content)} characters) to {file_path}")
+			logger.debug(f"Writing HTML content ({len(html_content)} characters) to {file_path}")
 			with open(file_path, 'w', encoding='utf-8') as f:
 				f.write(html_content)
 			
 			# Verify file was created
 			if file_path.exists():
-				logger.info(f"File created successfully: {file_path}")
-				logger.info(f"File size: {file_path.stat().st_size} bytes")
+				logger.debug(f"File created successfully: {file_path}")
+				logger.debug(f"File size: {file_path.stat().st_size} bytes")
 			else:
 				logger.error(f"File was not created: {file_path}")
 

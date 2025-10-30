@@ -7,9 +7,13 @@ let isProcessing = false;
 // API Configuration
 const API_BASE_URL = window.location.origin;
 
+// Lightweight logging (disabled by default for clean console)
+const DEBUG = false;
+const log = (...args) => { if (DEBUG) console.log(...args); };
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Frontend initialized');
+	log('Frontend initialized');
     initializeFrontend();
     setupEventListeners();
     ensureMeshContainer();
@@ -23,7 +27,7 @@ function initializeFrontend() {
     // Initialize mesh container
     ensureMeshContainer();
     
-    console.log('Frontend components initialized');
+    log('Frontend components initialized');
 }
 
 // Setup event listeners
@@ -50,7 +54,7 @@ function ensureMeshContainer() {
         meshContainer.id = 'meshContainer';
         meshContainer.style.cssText = 'width: 100%; height: 100%; position: relative;';
         centerContent.appendChild(meshContainer);
-        console.log('Mesh container created');
+        log('Mesh container created');
     }
 }
 
@@ -64,7 +68,7 @@ async function handleCommandSubmit(event) {
     const prompt = commandInput.value.trim();
     if (!prompt) return;
     
-    console.log('Processing command:', prompt);
+    log('Processing command:', prompt);
     
     try {
         isProcessing = true;
@@ -87,7 +91,7 @@ async function handleCommandSubmit(event) {
         }
         
         const data = await response.json();
-        console.log('Received response:', data);
+        log('Received response:', data);
         
         // Display results
         displayResults(data);
@@ -106,7 +110,7 @@ async function handleCommandSubmit(event) {
 
 // Display simulation results
 function displayResults(data) {
-    console.log('Displaying results:', data);
+    log('Displaying results:', data);
     
     // Store context for editing
     currentContext = data.context || {};
@@ -138,7 +142,7 @@ function refreshRightPanel() {
     const rightPanel = document.querySelector('.right-panel');
     if (!rightPanel) return;
     
-    console.log('Refreshing right panel with context:', currentContext);
+    log('Refreshing right panel with context:', currentContext);
     
     // Generate configuration panels HTML
     const configHTML = generateConfigurationPanels(currentContext);
@@ -297,7 +301,7 @@ function getDefaultDimensionsForGeometry(geometryType) {
 
 // Update configuration
 function updateConfig(key, value) {
-    console.log(`Updating config: ${key} = ${value}`);
+    log(`Updating config: ${key} = ${value}`);
     
     // Parse the key to update nested objects
     const keys = key.split('.');
@@ -316,7 +320,7 @@ function updateConfig(key, value) {
     
     // Handle geometry type change - update dimensions immediately
     if (key === 'geometry_type') {
-        console.log(`Geometry type changed to: ${value}`);
+        log(`Geometry type changed to: ${value}`);
         
         // Clear existing dimensions
         currentContext.geometry_dimensions = {};
@@ -325,7 +329,7 @@ function updateConfig(key, value) {
         const defaultDimensions = getDefaultDimensionsForGeometry(value);
         if (defaultDimensions) {
             currentContext.geometry_dimensions = defaultDimensions;
-            console.log(`Set default dimensions for ${value}:`, defaultDimensions);
+            log(`Set default dimensions for ${value}:`, defaultDimensions);
         }
         
         // Immediately refresh the right panel to show new dimension fields
@@ -352,7 +356,7 @@ function updateConfig(key, value) {
 // Generate mesh preview in center panel
 async function generateMeshPreviewInCenter() {
     if (!currentContext.geometry_type || !currentContext.geometry_dimensions) {
-        console.log('Insufficient geometry information for mesh preview');
+        log('Insufficient geometry information for mesh preview');
         return;
     }
     
@@ -363,11 +367,11 @@ async function generateMeshPreviewInCenter() {
     );
     
     if (!hasValidDimensions) {
-        console.log('No valid dimensions found');
+        log('No valid dimensions found');
         return;
     }
     
-    console.log('Generating mesh preview with:', {
+    log('Generating mesh preview with:', {
         geometry_type: currentContext.geometry_type,
         dimensions: dimensions
     });
@@ -390,7 +394,7 @@ async function generateMeshPreviewInCenter() {
         }
         
         const data = await response.json();
-        console.log('Mesh preview response:', data);
+        log('Mesh preview response:', data);
         
         if (data.success && data.mesh_visualization_url) {
             displayMeshVisualization(data.mesh_visualization_url);
@@ -440,7 +444,7 @@ function displayMeshVisualization(url) {
     // Add success indicator
     iframe.style.border = '2px solid #28a745';
     
-    console.log('VTK mesh visualization updated:', url);
+    log('VTK mesh visualization updated:', url);
 }
 
 // Display field visualization
@@ -470,14 +474,14 @@ function displayFieldVisualization(url) {
     // Add field visualization indicator
     iframe.style.border = '2px solid #007bff';
     
-    console.log('Field visualization updated:', url);
+    log('Field visualization updated:', url);
 }
 
 // Solve PDE
 async function solvePDE() {
     if (isProcessing) return;
     
-    console.log('Solving PDE with context:', currentContext);
+    log('Solving PDE with context:', currentContext);
     
     try {
         isProcessing = true;
@@ -498,7 +502,7 @@ async function solvePDE() {
         }
         
         const data = await response.json();
-        console.log('PDE solution response:', data);
+        log('PDE solution response:', data);
         
         if (data.success) {
             displayResults(data);
@@ -620,7 +624,7 @@ function showNotification(message, type = 'info') {
 // Handle window resize
 function handleWindowResize() {
     // Adjust layout if needed
-    console.log('Window resized');
+    log('Window resized');
 }
 
 // Handle before unload

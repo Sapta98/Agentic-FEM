@@ -65,6 +65,10 @@ Located in `fenics_backend/`:
 - Solid mechanics simulations
 - Mixed physics problems
 
+**Logging policy:**
+- Console output is minimal by default. Verbose details (BC mapping, DOF dumps, mesh tag inspection) are logged at DEBUG level.
+- INFO is reserved for short essentials only; most previous INFO logs were downgraded to DEBUG.
+
 ### 5. **Frontend System**
 Located in `frontend/`:
 
@@ -73,6 +77,10 @@ Located in `frontend/`:
 - `TerminalInterface` - Web-based terminal interface
 - `MeshVisualizer` - 3D mesh visualization with VTK.js
 - `FieldVisualizer` - Field solution visualization
+
+**Assets and VTK.js:**
+- VTK.js is downloaded locally by the startup script and copied to `frontend/static/js/vtk.js`.
+- CDN loading for VTK.js is not enabled.
 
 ## Information Flow
 
@@ -122,6 +130,8 @@ Context → MeshGenerator → GMSHGenerator → GMSH → Mesh Data
 Mesh Data → MeshVisualizer → VTK.js → 3D Visualization
    ↓
 Mesh Data → SimulationManager.current_mesh_data
+
+Note: The startup script ensures VTK.js is present locally before visualization is served.
 ```
 
 ### Phase 3: PDE Solving
@@ -138,14 +148,15 @@ SimulationManager → FEniCS Solver → Field Visualizer
 Stored Context + Mesh Data → FEniCS Solver → Solution Data
    ↓
 Solution Data → Field Visualizer → Field Visualization
+
+Note: Field visualizer emits only concise INFO logs; structure/values are gated behind DEBUG.
 ```
 
 ## Key Design Principles
 
 ### 1. **Central Data Store**
-- **SimulationManager** is the single source of truth
-- All components read from/write to SimulationManager
-- No data passing between frontend and backend
+- **SimulationManager** is the single source of truth within the backend
+- Backend components read from/write to SimulationManager; the frontend communicates via HTTP API
 
 ### 2. **No Double Parsing**
 - Parse once, store in SimulationManager
@@ -181,6 +192,9 @@ Solution Data → Field Visualizer → Field Visualization
 - `GET /` - Main application interface
 - `POST /frontend/visualization/mesh` - Create mesh visualization
 - `POST /frontend/visualization/field` - Create field visualization
+
+Startup behavior:
+- `start.sh` activates the environment, installs Python deps quietly, installs node modules if missing (npm ci/install), copies VTK.js locally, and starts Uvicorn.
 
 ## Data Structures
 

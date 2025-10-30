@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "description": "Main configuration file for FEM simulation system",
   "geometry": {
-    "type": "rod",
+    "type": "cylinder",
     "dimensions": {
       "length": 1.0,
       "radius": 0.3
@@ -37,7 +37,7 @@
       "visualization_format": "vtk",
       "save_mesh": true
     },
-    "last_updated": "2025-10-29T18:59:34.831035"
+    "last_updated": "2025-10-30T12:04:04.082127"
   },
   "configuration_files": {
     "dimensions": "config/dimensions.json",

@@ -22,8 +22,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'nlp_parser' / 'src'))
 try:
 	from prompt_analyzer import SimulationPromptParser
 except ImportError as e:
-	print(f"Error importing NLP parser: {e}")
-	print("Make sure the nlp_parser module is properly set up")
+	logging.error(f"Error importing NLP parser: {e}")
+	logging.error("Make sure the nlp_parser module is properly set up")
 	sys.exit(1)
 
 # Import FEniCS backend
@@ -34,16 +34,18 @@ try:
 	from local_field_visualizer import FieldVisualizer
 	fenics_solver = FEniCSSolver()
 	field_visualizer = FieldVisualizer()
-	print("✅ FEniCS backend available")
+	logging.info("FEniCS backend available")
 except Exception as e:
-	print(f"Warning: FEniCS backend not available: {e}")
+	logging.warning(f"FEniCS backend not available: {e}")
 	fenics_solver = None
 	field_visualizer = None
 	FENICS_AVAILABLE = False
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from config.logging_config import configure_logging, get_logger
+
+# Setup logging once for the app
+configure_logging()
+logger = get_logger(__name__)
 
 # Request/Response models
 class SimulationRequest(BaseModel):

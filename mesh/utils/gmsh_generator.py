@@ -20,9 +20,9 @@ class GMSHGenerator:
 		self.gmsh_model = None  # Store the GMSH model object
 		self.gmsh_initialized = False
 		if self.gmsh_available:
-			logger.info("✅ GMSH mesh generator initialized")
+			logger.debug("GMSH mesh generator initialized")
 		else:
-			logger.error("❌ GMSH not available - GMSH is required for mesh generation")
+			logger.error("GMSH not available - GMSH is required for mesh generation")
     
 	def _check_gmsh_availability(self) -> bool:
 		"""Check if GMSH is available"""
@@ -61,7 +61,7 @@ class GMSHGenerator:
 			
 			self.gmsh_initialized = True
 			self.gmsh_model = gmsh.model  # Store reference to GMSH model
-			logger.info("✅ GMSH initialized successfully")
+			logger.debug("GMSH initialized successfully")
 			return True
 			
 		except Exception as e:
@@ -84,7 +84,7 @@ class GMSHGenerator:
 				gmsh.clear()
 				# Finalize GMSH
 				gmsh.finalize()
-				logger.info("✅ GMSH finalized and cleared successfully")
+				logger.debug("GMSH finalized and cleared successfully")
 			except Exception as e:
 				logger.error(f"Error finalizing GMSH: {e}")
 			finally:
@@ -100,7 +100,7 @@ class GMSHGenerator:
 		try:
 			import gmsh
 			gmsh.clear()
-			logger.info("Force cleared GMSH model")
+			logger.debug("Force cleared GMSH model")
 		except Exception as e:
 			logger.warning(f"Could not force clear GMSH model: {e}")
 
@@ -110,7 +110,7 @@ class GMSHGenerator:
 			import gmsh
 			# Clear any existing GMSH model
 			gmsh.clear()
-			logger.info("Cleared GMSH model during cleanup")
+			logger.debug("Cleared GMSH model during cleanup")
 		except Exception as e:
 			logger.warning(f"Could not clear GMSH model: {e}")
 		
@@ -126,7 +126,7 @@ class GMSHGenerator:
 			return self._create_error_mesh("GMSH not available")
 		
 		# Show loading message
-		logger.info("Loading visualization... Generating mesh with GMSH...")
+		logger.debug("Generating mesh with GMSH...")
 		
 		try:
 			# Set mesh parameters
@@ -250,31 +250,31 @@ class GMSHGenerator:
 			elif geometry_type == 'disc':
 				# Circular geometry
 				radius = dimensions.get('radius', 1.0)
-				logger.info(f"Creating disc with radius: {radius}")
+				logger.debug(f"Creating disc with radius: {radius}")
 
 				# Create disc
 				disc = gmsh.model.occ.addDisk(0, 0, 0, radius, radius)
 				gmsh.model.occ.synchronize()
-				logger.info(f"Created disc geometry: {disc}")
+				logger.debug(f"Created disc geometry: {disc}")
 
 				# Create physical groups - for disc, all boundary curves should be in one group
 				boundaries = gmsh.model.getBoundary([(2, disc)])
-				logger.info(f"Disc boundaries: {boundaries}")
+				logger.debug(f"Disc boundaries: {boundaries}")
 				if boundaries:
 					# Group all boundary curves into a single physical group
 					boundary_curves = [boundary[1] for boundary in boundaries]
 					gmsh.model.addPhysicalGroup(1, boundary_curves, 1, name="circular_boundary")
 				gmsh.model.addPhysicalGroup(2, [disc], 2, name="domain")
-				logger.info("Added physical groups for disc")
+				logger.debug("Added physical groups for disc")
 
 			# Generate mesh
-			logger.info("Generating 2D mesh...")
+			logger.debug("Generating 2D mesh...")
 			gmsh.model.mesh.generate(2)
-			logger.info("2D mesh generation completed")
+			logger.debug("2D mesh generation completed")
 
 			# Extract mesh data
 			vertices, faces, cells, physical_groups = self._extract_mesh_data_gmsh()
-			logger.info(f"Extracted mesh data: {len(vertices)} vertices, {len(faces)} faces, cells: {list(cells.keys())}")
+			logger.debug(f"Extracted mesh data: {len(vertices)} vertices, {len(faces)} faces, cells: {list(cells.keys())}")
 			
 			# Add boundary identification metadata
 			boundary_info = self._identify_boundaries_2d(vertices, physical_groups, geometry_type)
@@ -363,7 +363,7 @@ class GMSHGenerator:
 
 				# Create physical groups with meaningful names for cylinder
 				boundaries = gmsh.model.getBoundary([(3, cylinder)])
-				logger.info(f"Cylinder boundaries: {boundaries}")
+				logger.debug(f"Cylinder boundaries: {boundaries}")
 				
 				# Try to identify which boundary is which, but always create physical groups for ALL boundaries
 				# GMSH creates cylinder with: bottom face, top face, and curved surface
@@ -386,24 +386,24 @@ class GMSHGenerator:
 						# Calculate the z-range to determine if surface is flat or curved
 						z_range = abs(z_max - z_min)
 						
-						logger.info(f"Surface {surface_tag} (abs: {abs_tag}): z_min={z_min:.6f}, z_max={z_max:.6f}, z_range={z_range:.6f}")
+						logger.debug(f"Surface {surface_tag} (abs: {abs_tag}): z_min={z_min:.6f}, z_max={z_max:.6f}, z_range={z_range:.6f}")
 						
 						# Flat surfaces have very small z-range (bottom and top faces)
 						# Bottom surface: z is close to 0 and z_range is small
 						if z_range < 1e-6 and abs(z_min) < 1e-6:
 							surface_names[surface_tag] = "bottom"
-							logger.info(f"  → Identified as bottom")
+							logger.debug("Identified as bottom")
 						# Top surface: z is close to height and z_range is small
 						elif z_range < 1e-6 and abs(z_max - height) < 1e-6:
 							surface_names[surface_tag] = "top"
-							logger.info(f"  → Identified as top")
+							logger.debug("Identified as top")
 						# Curved surface: z varies significantly (z_range is large)
 						elif z_range > height * 0.1:  # Significant variation means curved
 							surface_names[surface_tag] = "curved_surface"
-							logger.info(f"  → Identified as curved_surface")
+							logger.debug("Identified as curved_surface")
 						else:
-							# Couldn't determine - leave unnamed
-							logger.warning(f"  → Could not identify surface {surface_tag}")
+						# Couldn't determine - leave unnamed
+							logger.debug(f"Could not identify surface {surface_tag}")
 					except Exception as e:
 						logger.warning(f"Failed to identify surface {surface_tag}: {e}")
 						# Leave unnamed - will be created but without a name
@@ -419,7 +419,7 @@ class GMSHGenerator:
 					try:
 						# Use absolute tag for physical group creation (GMSH handles orientation internally)
 						gmsh.model.addPhysicalGroup(2, [abs_tag], physical_group_id, name=name if name else "")
-						logger.info(f"Created physical group {physical_group_id} for surface {surface_tag} (abs: {abs_tag}) with name '{name}'")
+						logger.debug(f"Created physical group {physical_group_id} for surface {surface_tag} (abs: {abs_tag}) with name '{name}'")
 						physical_group_id += 1
 					except Exception as e:
 						logger.warning(f"Failed to create physical group for boundary {i+1} (surface {surface_tag}): {e}")
@@ -460,28 +460,28 @@ class GMSHGenerator:
 				gmsh.model.addPhysicalGroup(3, [sphere], 2)  # Domain
 
 			# Generate mesh
-			logger.info("Generating 3D mesh...")
+			logger.debug("Generating 3D mesh...")
 			gmsh.model.mesh.generate(3)
-			logger.info("3D mesh generation completed")
+			logger.debug("3D mesh generation completed")
 			
 			# Check if mesh was actually generated
 			try:
 				node_tags, node_coords, _ = gmsh.model.mesh.getNodes()
-				logger.info(f"Generated {len(node_tags)} nodes")
+				logger.debug(f"Generated {len(node_tags)} nodes")
 			except Exception as e:
 				logger.error(f"Failed to get nodes after mesh generation: {e}")
 			
 			# Extract mesh data
 			vertices, faces, cells, physical_groups = self._extract_mesh_data_gmsh()
 			
-			logger.info(f"Returning mesh data: {len(vertices)} vertices, {len(faces)} faces, {len(cells)} cell types")
-			logger.info(f"Cell types: {list(cells.keys())}")
+			logger.debug(f"Returning mesh data: {len(vertices)} vertices, {len(faces)} faces, {len(cells)} cell types")
+			logger.debug(f"Cell types: {list(cells.keys())}")
 			if 'tetrahedron' in cells:
-				logger.info(f"Tetrahedrons: {len(cells['tetrahedron'])}")
+				logger.debug(f"Tetrahedrons: {len(cells['tetrahedron'])}")
 			if 'triangle' in cells:
-				logger.info(f"Triangles: {len(cells['triangle'])}")
+				logger.debug(f"Triangles: {len(cells['triangle'])}")
 			if 'quad' in cells:
-				logger.info(f"Quads: {len(cells['quad'])}")
+				logger.debug(f"Quads: {len(cells['quad'])}")
 			
 			# Add boundary identification metadata
 			boundary_info = self._identify_boundaries_3d(vertices, physical_groups, geometry_type)
@@ -538,9 +538,9 @@ class GMSHGenerator:
 			faces = []
 			try:
 				elem_types, elem_tags, elem_node_tags = gmsh.model.mesh.getElements(2)
-				logger.info(f"2D element types found: {elem_types}")
+				logger.debug(f"2D element types found: {elem_types}")
 				for elem_type, elem_node_tags in zip(elem_types, elem_node_tags):
-					logger.info(f"Processing element type {elem_type} with {len(elem_node_tags)} node tags")
+					logger.debug(f"Processing element type {elem_type} with {len(elem_node_tags)} node tags")
 					if elem_type == 2:  # First-order triangle
 						cells['triangle'] = []
 						for i in range(0, len(elem_node_tags), 3):
@@ -552,7 +552,7 @@ class GMSHGenerator:
 							]
 							faces.append(triangle)
 							cells['triangle'].append(triangle)
-						logger.info(f"Created {len(cells['triangle'])} first-order triangles")
+						logger.debug(f"Created {len(cells['triangle'])} first-order triangles")
 					elif elem_type == 9:  # Second-order triangle (6 nodes: 3 corners + 3 mid-edges)
 						cells['triangle_2nd'] = []
 						for i in range(0, len(elem_node_tags), 6):
@@ -569,7 +569,7 @@ class GMSHGenerator:
 							triangle_corners = triangle_2nd[:3]
 							faces.append(triangle_corners)
 							cells['triangle_2nd'].append(triangle_2nd)
-						logger.info(f"Created {len(cells['triangle_2nd'])} second-order triangles (full curved elements)")
+						logger.debug(f"Created {len(cells['triangle_2nd'])} second-order triangles (full curved elements)")
 					elif elem_type == 3:  # First-order quad
 						cells['quad'] = []
 						for i in range(0, len(elem_node_tags), 4):
@@ -582,7 +582,7 @@ class GMSHGenerator:
 							]
 							faces.append(quad)
 							cells['quad'].append(quad)
-						logger.info(f"Created {len(cells['quad'])} first-order quads")
+						logger.debug(f"Created {len(cells['quad'])} first-order quads")
 					elif elem_type == 10:  # Second-order quad (9 nodes: 4 corners + 4 mid-edges + 1 center)
 						cells['quad'] = []
 						for i in range(0, len(elem_node_tags), 9):
@@ -595,7 +595,7 @@ class GMSHGenerator:
 							]
 							faces.append(quad)
 							cells['quad'].append(quad)
-						logger.info(f"Created {len(cells['quad'])} second-order quads (using corner nodes)")
+						logger.debug(f"Created {len(cells['quad'])} second-order quads (using corner nodes)")
 			except Exception as e:
 				logger.error(f"Error extracting 2D elements: {e}")
 				pass  # No 2D elements
@@ -603,9 +603,9 @@ class GMSHGenerator:
 			# Get cells (3D elements)
 			try:
 				elem_types, elem_tags, elem_node_tags = gmsh.model.mesh.getElements(3)
-				logger.info(f"3D element types found: {elem_types}")
+				logger.debug(f"3D element types found: {elem_types}")
 				for elem_type, elem_node_tags in zip(elem_types, elem_node_tags):
-					logger.info(f"Processing 3D element type {elem_type} with {len(elem_node_tags)} node tags")
+					logger.debug(f"Processing 3D element type {elem_type} with {len(elem_node_tags)} node tags")
 					if elem_type == 4:  # First-order tetrahedron
 						cells['tetrahedron'] = []
 						for i in range(0, len(elem_node_tags), 4):
@@ -615,7 +615,7 @@ class GMSHGenerator:
 								tag_to_index[int(elem_node_tags[i+2])],
 								tag_to_index[int(elem_node_tags[i+3])]
 							])
-						logger.info(f"Created {len(cells['tetrahedron'])} first-order tetrahedrons")
+						logger.debug(f"Created {len(cells['tetrahedron'])} first-order tetrahedrons")
 					elif elem_type == 11:  # Second-order tetrahedron (10 nodes: 4 corners + 6 mid-edges)
 						cells['tetrahedron_2nd'] = []
 						for i in range(0, len(elem_node_tags), 10):
@@ -633,7 +633,7 @@ class GMSHGenerator:
 								tag_to_index[int(elem_node_tags[i+9])]     # Mid-edge 6
 							]
 							cells['tetrahedron_2nd'].append(tetrahedron_2nd)
-						logger.info(f"Created {len(cells['tetrahedron_2nd'])} second-order tetrahedrons (full curved elements)")
+						logger.debug(f"Created {len(cells['tetrahedron_2nd'])} second-order tetrahedrons (full curved elements)")
 			except Exception as e:
 				logger.warning(f"No 3D elements found: {e}")
 				pass  # No 3D elements
@@ -641,9 +641,9 @@ class GMSHGenerator:
 			# Handle 1D elements
 			try:
 				elem_types, elem_tags, elem_node_tags = gmsh.model.mesh.getElements(1)
-				logger.info(f"1D element types found: {elem_types}")
+				logger.debug(f"1D element types found: {elem_types}")
 				for elem_type, elem_node_tags in zip(elem_types, elem_node_tags):
-					logger.info(f"Processing 1D element type {elem_type} with {len(elem_node_tags)} node tags")
+					logger.debug(f"Processing 1D element type {elem_type} with {len(elem_node_tags)} node tags")
 					if elem_type == 1:  # First-order line
 						if 'line' not in cells:
 							cells['line'] = []

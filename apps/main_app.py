@@ -28,9 +28,11 @@ from nlp_parser.src.geometry_classifier import classify_geometry
 # Add fenics_backend to path
 sys.path.insert(0, str(project_root / 'fenics_backend'))
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from config.logging_config import configure_logging, get_logger
+
+# Setup logging once for the app
+configure_logging()
+logger = get_logger(__name__)
 
 # Request/Response models
 class SimulationRequest(BaseModel):
@@ -220,8 +222,8 @@ async def generate_mesh_preview(request: MeshPreviewRequest):
 	validation = mesh_viewer.validate_geometry(request.geometry_type, request.dimensions)
 	if not validation["valid"]:
 		error_msg = validation.get("error", "Invalid geometry parameters")
-		print(f"DEBUG: Validation failed for {request.geometry_type} with dimensions {request.dimensions}")
-		print(f"DEBUG: Validation result: {validation}")
+		logger.debug(f"Validation failed for {request.geometry_type} with dimensions {request.dimensions}")
+		logger.debug(f"Validation result: {validation}")
 		raise HTTPException(status_code=400, detail=error_msg)
 
 	# Generate mesh preview using mesh viewer (correct architecture)

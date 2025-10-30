@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+import logging
 from typing import Dict, List, Tuple, Any
 
 DEFAULT_SYNONYMS: Dict[str, List[str]] = {
@@ -91,7 +92,7 @@ def _load_geometry_types(dimensions_json_path: Path) -> List[str]:
 			
 			return result
 	except Exception as e:
-		print(f"Error loading geometry types: {e}")
+		logging.error(f"Error loading geometry types: {e}")
 		return []
 
 def _tokenize(text: str) -> List[str]:

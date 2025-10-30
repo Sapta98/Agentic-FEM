@@ -18,7 +18,7 @@ A modern web-based finite element method application with 3D mesh visualization 
 ### Prerequisites
 
 - Python 3.8+
-- Node.js (for VTK.js)
+- Node.js (installed via environment.yml or system) for VTK.js tooling
 
 ### Installation & Setup
 
@@ -29,9 +29,6 @@ mamba env create -f environment.yml
 
 # Activate environment
 mamba activate agentic-fem
-
-# Install VTK.js
-npm install
 
 # Start the application
 ./start.sh
@@ -55,10 +52,7 @@ source venv/bin/activate
 # 2. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Install VTK.js
-npm install
-
-# 4. Start the application
+# 3. Start the application (start.sh will install node modules if needed)
 python -m uvicorn apps.main_app:app --host 0.0.0.0 --port 8080 --reload
 ```
 
@@ -131,6 +125,22 @@ The application uses a clean architecture pattern with separated concerns:
 - **Business Logic**: Simulation management and mesh processing
 - **Data Layer**: Mesh generation and PDE solving
 - **Integration**: GMSH for meshing, FEniCS for solving, VTK.js for visualization
+
+### Startup behavior and frontend dependencies
+
+- `start.sh` keeps console output minimal and will:
+  - Ensure Python requirements are installed quietly
+  - If `node_modules` is missing, run a quiet `npm ci` (or `npm install`) and copy VTK.js into `frontend/static/js/`
+  - Start Uvicorn on port 8080
+
+### Environment configuration
+
+- Use a `.env` file (see any `*.env.example` in the repo) to configure secrets or runtime settings as needed.
+
+## Notes
+
+- VTK.js is downloaded and copied locally by the startup script; CDN loading is not enabled at this time.
+- Set your OpenAI API key in `nlp_parser/src/.env` (e.g., `OPENAI_API_KEY=...`) before running the NLP-driven flows.
 
 ## License
 

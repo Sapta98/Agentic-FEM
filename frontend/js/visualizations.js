@@ -1,5 +1,9 @@
 // Visualization JavaScript for FEM Simulation Frontend
 
+// Lightweight logging (disabled by default for clean console)
+const DEBUG = false;
+const log = (...args) => { if (DEBUG) console.log(...args); };
+
 // VTK.js utilities
 const VTKUtils = {
     // Check if VTK.js is loaded
@@ -247,7 +251,7 @@ class VTKMeshVisualization {
             // Handle window resize
             window.addEventListener('resize', () => this.handleResize());
             
-            console.log('VTK mesh visualization initialized');
+            log('VTK mesh visualization initialized');
             this.isInitialized = true;
         } catch (error) {
             console.error('Failed to initialize VTK mesh visualization:', error);
@@ -292,7 +296,7 @@ class VTKMeshVisualization {
             // Render
             this.renderWindow.render();
             
-            console.log('Mesh loaded successfully');
+            log('Mesh loaded successfully');
         } catch (error) {
             console.error('Failed to load mesh:', error);
             throw error;
@@ -337,7 +341,7 @@ class VTKMeshVisualization {
             // Render
             this.renderWindow.render();
             
-            console.log('Field visualization loaded successfully');
+            log('Field visualization loaded successfully');
         } catch (error) {
             console.error('Failed to load field visualization:', error);
             throw error;
@@ -441,7 +445,7 @@ class VTKMeshVisualization {
         
         window.removeEventListener('resize', this.handleResize);
         
-        console.log('VTK mesh visualization disposed');
+        log('VTK mesh visualization disposed');
     }
 }
 
@@ -554,7 +558,7 @@ class MeshVisualization {
             // Handle window resize
             window.addEventListener('resize', () => this.handleResize());
             
-            console.log('Mesh visualization initialized');
+            log('Mesh visualization initialized');
         } catch (error) {
             console.error('Failed to initialize mesh visualization:', error);
             throw error;
@@ -631,7 +635,7 @@ class MeshVisualization {
             // Start animation
             this.animate();
             
-            console.log('Mesh loaded successfully');
+            log('Mesh loaded successfully');
         } catch (error) {
             console.error('Failed to load mesh:', error);
             throw error;
@@ -691,7 +695,7 @@ class MeshVisualization {
         
         window.removeEventListener('resize', this.handleResize);
         
-        console.log('Mesh visualization disposed');
+        log('Mesh visualization disposed');
     }
 }
 
@@ -758,7 +762,7 @@ class FieldVisualization {
             // Handle window resize
             window.addEventListener('resize', () => this.handleResize());
             
-            console.log('Field visualization initialized');
+            log('Field visualization initialized');
         } catch (error) {
             console.error('Failed to initialize field visualization:', error);
             throw error;
@@ -837,7 +841,7 @@ class FieldVisualization {
             // Start animation
             this.animate();
             
-            console.log('Field loaded successfully');
+            log('Field loaded successfully');
         } catch (error) {
             console.error('Failed to load field:', error);
             throw error;
@@ -954,7 +958,7 @@ class FieldVisualization {
         
         window.removeEventListener('resize', this.handleResize);
         
-        console.log('Field visualization disposed');
+        log('Field visualization disposed');
     }
 }
 

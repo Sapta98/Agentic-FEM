@@ -4,7 +4,7 @@
 
 ### Prerequisites
 - Python 3.8+
-- Node.js (for VTK.js)
+- Node.js (installed via environment.yml or system) for VTK.js tooling
 
 ### Option 1: Mamba Setup (Recommended)
 
@@ -15,10 +15,7 @@ mamba env create -f environment.yml
 # 2. Activate environment
 mamba activate agentic-fem
 
-# 3. Install VTK.js
-npm install
-
-# 4. Start the application
+# 3. Start the application (start.sh will install node modules if missing)
 ./start.sh
 ```
 
@@ -42,10 +39,7 @@ source venv/bin/activate
 # 2. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Install VTK.js
-npm install
-
-# 4. Start the application
+# 3. Start the application (start.sh will install node modules if missing)
 python -m uvicorn apps.main_app:app --host 0.0.0.0 --port 8080 --reload
 ```
 
@@ -95,7 +89,7 @@ python -m uvicorn apps.main_app:app --host 0.0.0.0 --port 8080 --reload
 ## 🆘 Troubleshooting
 
 - **Port 8080 in use**: Change port in startup command
-- **VTK.js not loading**: Ensure `npm install` completed successfully
+- **VTK.js not loading**: Ensure `start.sh` ran with Node available; it will install and copy VTK.js locally
 - **Mesh generation fails**: Check geometry parameters and dimensions
 - **Python version issues**: Ensure Python 3.8+ is installed
 
