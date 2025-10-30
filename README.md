@@ -2,6 +2,10 @@
 
 A modern web-based finite element method application with 3D mesh visualization and PDE solving capabilities.
 
+## Example Interface
+
+![Running Interface Screenshot](Screenshot%202025-10-30%20at%202.45.30%E2%80%AFPM.png)
+
 ## Features
 
 - **3D Mesh Generation**: Create meshes for various geometries (cubes, cylinders, spheres, beams)
