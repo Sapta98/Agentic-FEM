@@ -154,30 +154,30 @@ Centralized configuration management:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    User Prompt                               │
-│                  (Natural Language)                          │
+│                    User Prompt                              │
+│                  (Natural Language)                         │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Parsing Workflow (Master Agent)                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                │
-│  │ Physics  │  │ Geometry │  │ Material │  (Parallel)    │
-│  │  Agent   │  │  Agent   │  │  Agent   │                │
-│  └──────────┘  └──────────┘  └──────────┘                │
-│         │            │            │                        │
-│         └────────────┴────────────┘                        │
-│                         │                                   │
-│                         ▼                                   │
-│  ┌──────────┐  ┌──────────┐                              │
-│  │Dimension │  │Boundary  │  (Sequential)                │
-│  │  Agent   │  │  Agent   │                              │
-│  └──────────┘  └──────────┘                              │
+│              Parsing Workflow (Master Agent)                │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │ Physics  │  │ Geometry │  │ Material │  (Parallel)       │
+│  │  Agent   │  │  Agent   │  │  Agent   │                   │
+│  └──────────┘  └──────────┘  └──────────┘                   │
+│         │            │            │                         │
+│         └────────────┴────────────┘                         │
+│                      │                                      │
+│                      ▼                                      │
+│         ┌──────────┐  ┌──────────┐                          │
+│         │Dimension │  │Boundary  │  (Sequential)            │
+│         │  Agent   │  │  Agent   │                          │
+│         └──────────┘  └──────────┘                          │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│            Simulation Context                                │
+│            Simulation Context                               │
 │  - Physics Type                                             │
 │  - Geometry Type & Dimensions                               │
 │  - Material Properties                                      │
@@ -186,20 +186,20 @@ Centralized configuration management:
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Mesh Generation (Mesh Agent)                    │
-│                  GMSH Mesh Generator                         │
+│              Mesh Generation (Mesh Agent)                   │
+│                  GMSH Mesh Generator                        │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              PDE Solving (Solver Agent)                      │
+│              PDE Solving (Solver Agent)                     │
 │                 FEniCS Solver                               │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Visualization (Field Visualizer)                │
-│              Interactive 3D Visualizations                   │
+│              Visualization (Field Visualizer)               │
+│              Interactive 3D Visualizations                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
