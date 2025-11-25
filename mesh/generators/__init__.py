@@ -2,12 +2,11 @@
 Mesh Generators
 ===============
 
-Specialized mesh generators for different dimensions and geometry types.
+This module previously contained dimension-specific mesh generators.
+These have been removed as they were redundant wrappers around GMSHGenerator.
+
+Mesh generation now happens directly through MeshGenerator -> GMSHGenerator.
 """
 
-from .mesh_1d import MeshGenerator1D
-from .mesh_2d import MeshGenerator2D
-from .mesh_3d import MeshGenerator3D
-from .base_generator import BaseMeshGenerator
-
-__all__ = ['MeshGenerator1D', 'MeshGenerator2D', 'MeshGenerator3D', 'BaseMeshGenerator']
+# Empty module - wrappers have been removed
+__all__ = []

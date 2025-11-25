@@ -2,28 +2,24 @@
 Main Mesh Generator
 ===================
 
-Main mesh generator that coordinates between different dimension-specific generators
-and determines the appropriate mesh type based on geometry and physics.
+Main mesh generator that coordinates mesh generation using GMSH directly.
+Determines the appropriate mesh type based on geometry.
 """
 
 import logging
 from typing import Dict, Any, Optional
 from .utils.mesh_detector import detect_mesh_dimensions, validate_geometry_dimensions
 from .config.mesh_config import mesh_config
-from .generators import MeshGenerator1D, MeshGenerator2D, MeshGenerator3D
+from .utils.gmsh_generator import GMSHGenerator
 
 logger = logging.getLogger(__name__)
 
 class MeshGenerator:
-	"""Main mesh generator that creates appropriate meshes based on geometry and physics"""
+	"""Main mesh generator that creates appropriate meshes based on geometry"""
 
 	def __init__(self):
 		self.logger = logger
-		self.generators = {
-			1: MeshGenerator1D(),
-			2: MeshGenerator2D(),
-			3: MeshGenerator3D()
-		}
+		self.gmsh_generator = GMSHGenerator()
 
 	def generate_mesh(self, geometry_type: str, dimensions: Dict[str, float],
 			mesh_quality: str = 'medium',
@@ -70,14 +66,16 @@ class MeshGenerator:
 			if custom_parameters:
 				mesh_parameters.update(custom_parameters)
 
-			# Select appropriate generator
-			if mesh_dim not in self.generators:
+			# Validate mesh dimension
+			if mesh_dim not in [1, 2, 3]:
 				return self._create_error_mesh(f"Unsupported mesh dimension: {mesh_dim}")
 
-			generator = self.generators[mesh_dim]
+			# Check GMSH availability
+			if not self.gmsh_generator.gmsh_available:
+				return self._create_error_mesh("GMSH not available - GMSH is required for mesh generation")
 
-			# Generate mesh
-			mesh_data = generator.generate_mesh(geometry_type, dimensions, mesh_parameters)
+			# Generate mesh directly using GMSHGenerator
+			mesh_data = self.gmsh_generator.generate_mesh(geometry_type, dimensions, mesh_parameters)
 
 			# Add metadata
 			mesh_data.update({
@@ -85,7 +83,7 @@ class MeshGenerator:
 				'geometry_type': geometry_type,
 				'mesh_quality': mesh_quality,
 				'mesh_config': mesh_config_info,
-				'generator_used': f'{mesh_dim}D_generator'
+				'generator_used': 'GMSHGenerator'
 			})
 
 			nodes_count = mesh_data.get('mesh_stats', {}).get('num_vertices', len(mesh_data.get('vertices', [])))
@@ -100,17 +98,10 @@ class MeshGenerator:
 	def get_supported_geometries(self) -> Dict[int, list]:
 		"""Get list of supported geometries by dimension"""
 		supported = {}
-
-		for dim, generator in self.generators.items():
-			geometries = []
-
-			if dim == 1:
-				geometries = ['line', 'rod', 'bar']
-			elif dim == 2:
-				geometries = ['plate', 'membrane', 'disc', 'rectangle']
-			elif dim == 3:
-				geometries = ['cube', 'box', 'beam', 'cylinder', 'sphere', 'solid', 'rectangular']
-
+		
+		# Get geometries from mesh_config grouped by dimension
+		for dim in [1, 2, 3]:
+			geometries = mesh_config.get_supported_geometries(dimension=dim)
 			supported[dim] = geometries
 
 		return supported
@@ -126,14 +117,14 @@ class MeshGenerator:
 		# Get mesh dimension
 		mesh_dim = mesh_config.get_mesh_dimension(geometry_type)
 
-		if mesh_dim not in self.generators:
+		if mesh_dim not in [1, 2, 3]:
 			return {
 				'valid': False,
 				'error': f'Unsupported geometry type: {geometry_type}'
 			}
 
-		generator = self.generators[mesh_dim]
-		required_dims = generator.get_required_dimensions(geometry_type)
+		# Get required dimensions from mesh_config
+		required_dims = mesh_config.get_required_dimensions(geometry_type)
 
 		return {
 			'valid': True,
@@ -149,10 +140,8 @@ class MeshGenerator:
 			# Get mesh dimension
 			mesh_dim = mesh_config.get_mesh_dimension(geometry_type)
 
-			# Get generator info
-			generator = self.generators.get(mesh_dim)
-			if not generator:
-				return {'error': f'No generator for dimension {mesh_dim}'}
+			if mesh_dim not in [1, 2, 3]:
+				return {'error': f'Unsupported geometry type: {geometry_type}'}
 
 			# Get geometry config
 			geometry_config = mesh_config.get_geometry_config(geometry_type)
@@ -163,11 +152,11 @@ class MeshGenerator:
 			return {
 				'geometry_type': geometry_type,
 				'mesh_dimension': mesh_dim,
-				'required_dimensions': generator.get_required_dimensions(geometry_type),
+				'required_dimensions': mesh_config.get_required_dimensions(geometry_type),
 				'geometry_config': geometry_config,
 				'mesh_type': mesh_config_info['mesh_type'],
 				'gmsh_available': mesh_config.is_gmsh_available(),
-				'generator_class': generator.__class__.__name__,
+				'generator_class': 'GMSHGenerator',
 				'description': geometry_config.get('description', 'Unknown geometry')
 			}
 
@@ -264,29 +253,31 @@ class MeshGenerator:
 		}
 
 	def get_generator_status(self) -> Dict[str, Any]:
-		"""Get status of all mesh generators"""
+		"""Get status of mesh generator"""
+		supported = self.get_supported_geometries()
 		status = {
-			'total_generators': len(self.generators),
-			'generators': {},
+			'total_generators': 1,
+			'generators': {
+				'GMSH': {
+					'class': 'GMSHGenerator',
+					'available': self.gmsh_generator.gmsh_available,
+					'supported_geometries': supported
+				}
+			},
 			'gmsh_available': mesh_config.is_gmsh_available(),
-			'supported_geometries': self.get_supported_geometries()
+			'supported_geometries': supported
 		}
-
-		for dim, generator in self.generators.items():
-			try:
-				status['generators'][f'{dim}D'] = {
-					'class': generator.__class__.__name__,
-					'available': True,
-					'supported_geometries': self.get_supported_geometries()[dim]
-				}
-			except Exception as e:
-				status['generators'][f'{dim}D'] = {
-					'class': generator.__class__.__name__,
-					'available': False,
-					'error': str(e)
-				}
 
 		return status
 
 # Global mesh generator instance
-mesh_generator = MeshGenerator()
+# Wrap in try-except to handle GMSH import failures gracefully
+try:
+    mesh_generator = MeshGenerator()
+except Exception as e:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error(f"Failed to initialize global MeshGenerator: {e}")
+    logger.error("Mesh generation will not be available. Please check GMSH installation.")
+    # Create a None instance - callers should check for None
+    mesh_generator = None

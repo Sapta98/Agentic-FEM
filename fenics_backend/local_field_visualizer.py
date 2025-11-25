@@ -54,10 +54,19 @@ class FieldVisualizer:
 		
 		# Use GMSH mesh data directly (now provided by FEniCS solver)
 		logger.debug("Using GMSH mesh data from FEniCS solution")
+		# For solid mechanics, use deformed_coordinates if available (shows deflected shape)
+		# Otherwise use original coordinates
+		if 'deformed_coordinates' in solution_result and solution_result['deformed_coordinates']:
+			vertices = solution_result['deformed_coordinates']
+			logger.info(f"Using deformed_coordinates in mesh_data: {len(vertices)} vertices (solid mechanics deflection)")
+		else:
+			vertices = solution_result.get('coordinates', [])  # GMSH vertices (original)
+			logger.debug(f"Using original coordinates in mesh_data: {len(vertices)} vertices")
+		
 		self.mesh_data = {
 			'faces': solution_result.get('faces', []),
 			'cells': solution_result.get('cells', {}),
-			'vertices': solution_result.get('coordinates', []),  # GMSH vertices
+			'vertices': vertices,  # GMSH vertices (deformed for solid mechanics, original for others)
 			'mesh_dimension': solution_result.get('mesh_info', {}).get('dimension', 3)
 		}
 
@@ -76,7 +85,15 @@ class FieldVisualizer:
 		"""Generate HTML content for field visualization using VTK.js template"""
 
 		# Get GMSH mesh data directly from solution_result (no reordering needed)
-		coordinates = solution_result.get('coordinates', [])  # GMSH vertices
+		# For solid mechanics, use deformed_coordinates if available (shows deflected shape)
+		# Otherwise use original coordinates
+		if 'deformed_coordinates' in solution_result and solution_result['deformed_coordinates']:
+			coordinates = solution_result['deformed_coordinates']
+			logger.info(f"Using deformed_coordinates for visualization: {len(coordinates)} vertices (solid mechanics deflection)")
+		else:
+			coordinates = solution_result.get('coordinates', [])  # GMSH vertices (original)
+			logger.debug(f"Using original coordinates (no deformed_coordinates available): {len(coordinates)} vertices")
+		
 		values = solution_result.get('values', [])  # Solution mapped to GMSH vertices
 		cells = solution_result.get('cells', {})  # GMSH cells (dict format)
 		faces = solution_result.get('faces', [])  # GMSH faces
@@ -89,19 +106,76 @@ class FieldVisualizer:
 			logger.debug("Creating mesh-only visualization")
 			return self._generate_mesh_only_html()
 
-		# Get field information
-		field_name = solution_result.get('field_name', 'Unknown Field')
-		field_units = solution_result.get('field_units', '')
-		field_type = solution_result.get('field_type', 'scalar')
+		# Get field information from solution structure
+		# Priority: field_info structure > top-level field_name > fallback
+		physics_type = solution_result.get('physics_type', 'unknown')
+		field_info = solution_result.get('field_info', {})
 		
-		# Calculate min/max values from actual field data
-		min_val = float(np.min(values))
-		max_val = float(np.max(values))
+		# Try to get field name from field_info structure first
+		if field_info:
+			# Get visualization_field or primary_field from field_info
+			visualization_field = field_info.get('visualization_field') or field_info.get('primary_field')
+			if visualization_field and 'fields' in field_info:
+				field_data = field_info['fields'].get(visualization_field, {})
+				field_name = field_data.get('name', solution_result.get('field_name', 'Unknown Field'))
+				field_units = field_data.get('units', solution_result.get('field_units', ''))
+				field_type = field_data.get('type', solution_result.get('field_type', 'scalar'))
+			else:
+				# Fallback to top-level values
+				field_name = solution_result.get('field_name', 'Unknown Field')
+				field_units = solution_result.get('field_units', '')
+				field_type = solution_result.get('field_type', 'scalar')
+		else:
+			# No field_info, use top-level values
+			field_name = solution_result.get('field_name', 'Unknown Field')
+			field_units = solution_result.get('field_units', '')
+			field_type = solution_result.get('field_type', 'scalar')
+		
+		# Create display name: "{field_name} Field" (e.g., "Temperature Field", "Deflection Field")
+		field_display_name = f"{field_name} Field" if field_name else "Field Visualization"
+		
+		# Check if this is a transient solution
+		is_transient = solution_result.get("is_transient", False)
+		time_series = solution_result.get("time_series", solution_result.get("solutions", []))
+		
+		# Calculate min/max values
+		if is_transient and time_series:
+			# For transient solutions, compute global min/max across all time steps
+			all_values = []
+			for time_step_data in time_series:
+				if isinstance(time_step_data, dict) and "values" in time_step_data:
+					step_values = time_step_data["values"]
+					if isinstance(step_values, list):
+						all_values.extend(step_values)
+				elif isinstance(time_step_data, list):
+					# If time_series is a list of value lists
+					all_values.extend(time_step_data)
+			
+			# Also include current values
+			if values:
+				all_values.extend(values)
+			
+			if all_values:
+				min_val = float(np.min(all_values))
+				max_val = float(np.max(all_values))
+				logger.info(f"Transient solution: computed global colorbar range from all time steps: {min_val:.3f} to {max_val:.3f}")
+			else:
+				# Fallback to current values
+				min_val = float(np.min(values)) if values else 0.0
+				max_val = float(np.max(values)) if values else 1.0
+				logger.warning("Transient solution but could not extract values from time_series, using current values")
+		else:
+			# For steady-state solutions, use current values
+			min_val = float(np.min(values)) if values else 0.0
+			max_val = float(np.max(values)) if values else 1.0
+		
 		logger.debug(f"Field value range: {min_val:.3f} to {max_val:.3f}")
 
 		# Use GMSH mesh data directly (no complex extraction needed)
+		# For solid mechanics, coordinates contains deformed_coordinates (original + displacement)
+		# For other physics types, coordinates contains original vertices
 		mesh_data_js = {
-			"vertices": coordinates,  # GMSH vertices
+			"vertices": coordinates,  # GMSH vertices (deformed for solid mechanics, original for others)
 			"faces": faces,           # GMSH faces
 			"cells": cells            # GMSH cells (dict format)
 		}
@@ -119,7 +193,14 @@ class FieldVisualizer:
 			"field_type": field_type,
 			"min_value": min_val,
 			"max_value": max_val,
-			"lookup_table": lut_data  # Add lookup table data
+			"lookup_table": lut_data,  # Add lookup table data
+			"physics_type": physics_type,  # Include physics type
+			"field_info": field_info,  # Include field_info for available fields
+			"is_transient": solution_result.get("is_transient", False),
+			"time_steps": solution_result.get("time_steps", []),
+			"time_series": solution_result.get("time_series", solution_result.get("solutions", [])),
+			"time_stepping": solution_result.get("time_stepping", {}),
+			"initial_conditions": solution_result.get("initial_conditions", {})
 		}
 
 		# Create settings for field visualization
@@ -146,6 +227,7 @@ class FieldVisualizer:
 		html_content = html_content.replace('{field_name}', field_name)
 		html_content = html_content.replace('{field_units}', field_units)
 		html_content = html_content.replace('{field_type}', field_type)
+		html_content = html_content.replace('{field_display_name}', field_display_name)  # e.g., "Temperature Field", "Deflection Field"
 		html_content = html_content.replace('{min_val}', str(min_val)) if 'min_val' in template_content else html_content
 		html_content = html_content.replace('{max_val}', str(max_val)) if 'max_val' in template_content else html_content
 
@@ -261,6 +343,7 @@ class FieldVisualizer:
 		html_content = html_content.replace('{settings_js}', settings_js_str)
 		html_content = html_content.replace('{field_name}', 'Mesh Structure')
 		html_content = html_content.replace('{field_units}', '')
+		html_content = html_content.replace('{field_display_name}', 'Mesh Structure')
 		html_content = html_content.replace('{min_val}', '0')
 		html_content = html_content.replace('{max_val}', '1')
 		

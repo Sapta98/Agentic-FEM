@@ -32,11 +32,12 @@ class MeshViewer:
 
 		self.mesh_generator = MeshGenerator()
 		self.mesh_visualizer = MeshVisualizer("frontend/static")
-		logger.info("Mesh viewer initialized with new mesh system and VTK.js")
+		logger.debug("Mesh viewer initialized with new mesh system and VTK.js")
 
 	def _make_json_safe(self, obj):
 		"""Recursively convert objects to JSON-safe format"""
 		import numpy as np
+		from types import SimpleNamespace
 		
 		if isinstance(obj, dict):
 			result = {}
@@ -46,8 +47,50 @@ class MeshViewer:
 					if key == 'gmsh_initialized':
 						result['gmsh_model_was_available'] = value
 					continue
+				
+				# CRITICAL: Check if value is a PhysicalGroupWrapper FIRST (before GMSH check)
+				# PhysicalGroupWrapper might be from a module with 'gmsh' in the name, but it's JSON-serializable
+				if key == 'physical_groups' and isinstance(value, dict):
+					# Special handling for physical_groups dictionary
+					result[key] = {}
+					for pg_key, pg_value in value.items():
+						if hasattr(pg_value, '_data') and hasattr(pg_value, '__dict__') and hasattr(pg_value, 'dim') and hasattr(pg_value, 'tag'):
+							# It's a PhysicalGroupWrapper, convert to dict directly
+							# CRITICAL: Use _data dict directly to ensure node_tags is included
+							if isinstance(pg_value._data, dict):
+								result[key][pg_key] = self._make_json_safe(pg_value._data)
+							else:
+								# Fallback: manually construct dict
+								result[key][pg_key] = {
+									'dim': pg_value.dim,
+									'tag': pg_value.tag,
+									'entities': self._make_json_safe(getattr(pg_value, 'entities', [])),
+									'name': getattr(pg_value, 'name', None),
+									'dimension': getattr(pg_value, 'dim', None),
+									'entity_coordinates': self._make_json_safe(getattr(pg_value, 'entity_coordinates', [])),
+									'node_tags': self._make_json_safe(getattr(pg_value, 'node_tags', []))  # CRITICAL: Include node_tags
+								}
+						else:
+							# Already a dict or other type, recurse
+							result[key][pg_key] = self._make_json_safe(pg_value)
+				elif hasattr(value, '_data') and hasattr(value, '__dict__') and hasattr(value, 'dim') and hasattr(value, 'tag'):
+					# It's a PhysicalGroupWrapper, convert to dict directly
+					# CRITICAL: Use _data dict directly to ensure node_tags is included
+					if isinstance(value._data, dict):
+						result[key] = self._make_json_safe(value._data)
+					else:
+						# Fallback: manually construct dict
+						result[key] = {
+							'dim': value.dim,
+							'tag': value.tag,
+							'entities': self._make_json_safe(getattr(value, 'entities', [])),
+							'name': getattr(value, 'name', None),
+							'dimension': getattr(value, 'dim', None),
+							'entity_coordinates': self._make_json_safe(getattr(value, 'entity_coordinates', [])),
+							'node_tags': self._make_json_safe(getattr(value, 'node_tags', []))  # CRITICAL: Include node_tags
+						}
 				elif hasattr(value, '__module__') and 'gmsh' in str(value.__module__):
-					# Skip any GMSH-related objects
+					# Skip any GMSH-related objects (but not PhysicalGroupWrapper which we already handled)
 					continue
 				else:
 					result[key] = self._make_json_safe(value)
@@ -58,6 +101,23 @@ class MeshViewer:
 			return obj.tolist()
 		elif isinstance(obj, (np.integer, np.floating)):
 			return obj.item()
+		elif isinstance(obj, SimpleNamespace):
+			# Convert SimpleNamespace to dict
+			return self._make_json_safe(obj.__dict__)
+		elif hasattr(obj, '_data') and hasattr(obj, '__dict__'):
+			# Handle PhysicalGroupWrapper or similar objects with _data attribute
+			if hasattr(obj, 'dim') and hasattr(obj, 'tag'):
+				# It's a physical group wrapper, convert to dict
+				return {
+					'dim': obj.dim,
+					'tag': obj.tag,
+					'entities': self._make_json_safe(getattr(obj, 'entities', [])),
+					'name': getattr(obj, 'name', None),
+					'dimension': getattr(obj, 'dim', None)
+				}
+		elif hasattr(obj, '__dict__') and not isinstance(obj, type):
+			# Convert objects with __dict__ to dict
+			return self._make_json_safe(obj.__dict__)
 		elif hasattr(obj, '__module__') and 'gmsh' in str(obj.__module__):
 			# Skip GMSH objects
 			return None
@@ -68,12 +128,12 @@ class MeshViewer:
 	def create_mesh_visualization(self, mesh_data: Dict[str, Any], field_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
 		"""Create mesh visualization from existing mesh data (visualization only)"""
 		try:
-			logger.info("Creating mesh visualization from existing mesh data")
+			logger.debug("Creating mesh visualization from existing mesh data")
 			
 			# Create VTK.js 3D visualization
-			logger.info(f"Mesh visualizer available: {self.mesh_visualizer is not None}")
+			logger.debug(f"Mesh visualizer available: {self.mesh_visualizer is not None}")
 			visualization_file = self.mesh_visualizer.create_mesh_visualization(mesh_data, field_data)
-			logger.info(f"Visualization file result: {visualization_file}")
+			logger.debug(f"Visualization file result: {visualization_file}")
 
 			if visualization_file:
 				return {
@@ -105,8 +165,8 @@ class MeshViewer:
 		Returns:
 			Dict with success status and mesh visualization URL
 		"""
-		logger.info(f"Generating mesh preview for {geometry_type}")
-		logger.info(f"Dimensions: {dimensions}")
+		logger.debug(f"Generating mesh preview for {geometry_type}")
+		logger.debug(f"Dimensions: {dimensions}")
 
 		# Generate mesh data using new mesh system (geometry only)
 		mesh_data = self.mesh_generator.generate_mesh(
@@ -129,18 +189,35 @@ class MeshViewer:
 		}
 
 		# Create VTK.js 3D visualization
-		logger.info(f"Mesh visualizer available: {self.mesh_visualizer is not None}")
+		logger.debug(f"Mesh visualizer available: {self.mesh_visualizer is not None}")
 		try:
-			logger.info("Creating mesh visualization...")
+			logger.debug("Creating mesh visualization...")
 			visualization_file = self.mesh_visualizer.create_mesh_visualization(mesh_data, field_data)
-			logger.info(f"Visualization file result: {visualization_file}")
+			logger.debug(f"Visualization file result: {visualization_file}")
 
 			if visualization_file:
 				# Use the URL returned by the visualizer (includes full URL with port)
 				visualization_url = visualization_file
-				logger.info(f"Returning visualization URL: {visualization_url}")
+				logger.debug(f"Returning visualization URL: {visualization_url}")
+				
+				# Log physical_groups before making JSON-safe (debug only)
+				if 'physical_groups' in mesh_data:
+					pg_count = len(mesh_data['physical_groups']) if isinstance(mesh_data['physical_groups'], dict) else 0
+					pg_keys = list(mesh_data['physical_groups'].keys())[:10] if isinstance(mesh_data['physical_groups'], dict) else []
+					logger.debug(f"Before _make_json_safe: mesh_data has {pg_count} physical_groups: {pg_keys}")
+				else:
+					logger.warning("Before _make_json_safe: mesh_data does NOT contain 'physical_groups'")
+				
 				# Make mesh data JSON-safe for API response
 				json_safe_mesh_data = self._make_json_safe(mesh_data)
+				
+				# Log physical_groups after making JSON-safe (debug only)
+				if 'physical_groups' in json_safe_mesh_data:
+					pg_count = len(json_safe_mesh_data['physical_groups']) if isinstance(json_safe_mesh_data['physical_groups'], dict) else 0
+					pg_keys = list(json_safe_mesh_data['physical_groups'].keys())[:10] if isinstance(json_safe_mesh_data['physical_groups'], dict) else []
+					logger.debug(f"After _make_json_safe: json_safe_mesh_data has {pg_count} physical_groups: {pg_keys}")
+				else:
+					logger.warning("After _make_json_safe: json_safe_mesh_data does NOT contain 'physical_groups'")
 				
 				return {
 					"success": True,
@@ -189,12 +266,15 @@ class MeshViewer:
 		# Use the new mesh system's supported geometries
 		supported_by_dim = self.mesh_generator.get_supported_geometries()
 
+		# Import mesh_config to get required dimensions
+		from mesh.config.mesh_config import mesh_config
+
 		# Flatten and format for API
 		geometries = {}
 		for dim, geo_list in supported_by_dim.items():
 			for geo_type in geo_list:
-				# Get required dimensions from mesh generator
-				required_dims = self.mesh_generator.generators[dim].get_required_dimensions(geo_type)
+				# Get required dimensions from mesh_config
+				required_dims = mesh_config.get_required_dimensions(geo_type)
 
 				# Create example dimensions
 				example = {}

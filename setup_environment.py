@@ -116,17 +116,17 @@ def create_startup_script():
 	startup_script = """#!/bin/bash
 	# Agentic FEM Startup Script
 
-	echo "🚀 Starting Agentic FEM - Finite Element Method Application"
+	echo "Starting Agentic FEM - Finite Element Method Application"
 	echo "=========================================================="
 
 	# Check if virtual environment exists
 	if [ ! -d "venv" ]; then
-	echo "📦 Creating virtual environment..."
+	echo "Creating virtual environment..."
 	python3 -m venv venv
 	fi
 
 	# Activate virtual environment
-	echo "🔧 Activating virtual environment..."
+	echo "Activating virtual environment..."
 	source venv/bin/activate
 
 	# Install/update requirements

@@ -218,3 +218,17 @@ nlp_parser/src/.env
 
 
 venv/
+
+# Docker files
+Dockerfile
+docker-compose.yml
+docker-entrypoint.sh
+
+# AWS files
+*aws*.sh
+*aws*.json
+*aws*.md
+aws-ecs-task-definition.json
+deploy-aws-ecs.sh
+redeploy-aws.sh
+AWS_STRUCTURE.md

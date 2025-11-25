@@ -4,8 +4,12 @@ Context-Based Natural Language Parser for Physics Simulations
 """
 
 import logging
+import time
 from typing import Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor
 from openai import OpenAI
+from math import isfinite
+from config.config_manager import config_manager
 
 try:
 	from .prompt_templates import PromptManager
@@ -50,332 +54,57 @@ class ContextBasedParser:
 
 		# Load geometry boundaries configuration
 		self.geometry_boundaries = self._load_geometry_boundaries()
-
-	def parse_prompt(self, prompt: str) -> dict:
-		"""
-		Parse prompt and update context with any new information found
-
-		Args:
-			prompt: User's natural language prompt
-
-		Returns:
-			Dictionary with parsing results and next steps
-		"""
-		try:
-			self.parse_count += 1
-			start_time = time.time()
-
-			# Check if user explicitly wants to clear context
-			if "clear context" in prompt.lower():
-				self.clear_context()
-				return {
-					"action": "context_cleared",
-					"message": "Context cleared. Ready for new simulation.",
-					"context": self.context
-				}
-
-			# Step 1: Check if this is a new simulation or continuation
-			is_new_simulation = self._is_new_simulation(prompt)
-
-			if is_new_simulation or not self.context.get('physics_type'):
-				# Check if this is a physics simulation
-				physics_result = self._check_physics_simulation(prompt)
-				if not physics_result['is_physics']:
-					return {
-						"action": "request_info",
-						"message": physics_result['message'],
-						"context": self.context
-					}
-
-				# Update physics type
-				self.context['physics_type'] = physics_result['physics_type']
-				self.context['confidence_scores'] = physics_result['confidence_scores']
-				logger.info(f"Physics type established: {self.context['physics_type']}")
-			else:
-				logger.info(f"Continuing with existing physics type: {self.context['physics_type']}")
-
-			# Step 2: Check for material
-			material_result = self._check_material(prompt)
-			if material_result['found']:
-				old_material = self.context.get('material_type', 'none')
-				self.context['material_type'] = material_result['material_type']
-				self._fetch_material_properties()
-				if old_material != 'none' and old_material != material_result['material_type']:
-					logger.info(f"Material updated: {old_material} -> {self.context['material_type']}")
-				else:
-					logger.info(f"Material established: {self.context['material_type']}")
-			elif not self.context.get('material_type'):
-				return self._request_material_info()
-
-			# Step 3: Check for geometry
-			geometry_result = self._check_geometry(prompt)
-			if geometry_result['found']:
-				old_geometry = self.context.get('geometry_type', 'none')
-				self.context['geometry_type'] = geometry_result['geometry_type']
-				if old_geometry != 'none' and old_geometry != geometry_result['geometry_type']:
-					logger.info(f"Geometry updated: {old_geometry} -> {self.context['geometry_type']}")
-				else:
-					logger.info(f"Geometry established: {self.context['geometry_type']}")
-			elif not self.context.get('geometry_type'):
-				return self._request_geometry_info()
-
-			# Step 4: Check for dimensions
-			dimensions_result = self._check_dimensions(prompt)
-			if dimensions_result['found']:
-				self.context['geometry_dimensions'] = dimensions_result['dimensions']
-				logger.info(f"Dimensions updated: {dimensions_result['dimensions']}")
-			elif not self.context.get('geometry_dimensions'):
-				return self._request_dimensions_info()
-
-			# Step 5: Check for boundary conditions
-			bc_result = self._check_boundary_conditions(prompt)
-			if bc_result['found']:
-				# Add default BCs for unspecified boundaries
-				processed_bcs = self._add_default_boundary_conditions(bc_result['boundary_conditions'])
-				
-				self.context['boundary_conditions'] = processed_bcs
-				
-				# Enhanced logging for boundary conditions
-				bc_summary = []
-				for bc in processed_bcs:
-					bc_type = bc.get('type', 'unknown')
-					location = bc.get('location', 'unspecified')
-					value = bc.get('value')
-					bc_classification = bc.get('bc_type', 'unknown')
-					confidence = bc.get('confidence', 0.0)
-					
-					value_str = f" = {value}" if value is not None else ""
-					bc_summary.append(f"{bc_type} at {location}{value_str} ({bc_classification} BC, confidence: {confidence:.1f})")
-				
-				logger.info(f"Boundary conditions detected: {', '.join(bc_summary)}")
-				logger.info(f"Full boundary conditions data: {processed_bcs}")
-			elif not self.context.get('boundary_conditions'):
-				return self._request_boundary_conditions_info()
-
-			# Step 6: Check for external loads
-			loads_result = self._check_external_loads(prompt)
-			if loads_result['found']:
-				self.context['external_loads'] = loads_result['external_loads']
-				# Enhanced logging for external loads
-				loads_list = loads_result['external_loads']
-				loads_summary = []
-				for load in loads_list:
-					load_type = load.get('type', 'unknown')
-					magnitude = load.get('magnitude', 'unspecified')
-					direction = load.get('direction', 'unspecified')
-					location = load.get('location', 'unspecified')
-					confidence = load.get('confidence', 0.0)
-					
-					loads_summary.append(f"{load_type} {magnitude} in {direction} at {location} (confidence: {confidence:.1f})")
-				
-				logger.info(f"External loads detected: {', '.join(loads_summary)}")
-				logger.info(f"Full external loads data: {loads_result['external_loads']}")
-
-			# Step 7: Complete data structure
-			completion_result = self._complete_data_structure(prompt)
-			if completion_result['success']:
-				self.context.update(completion_result['data'])
-				logger.info("Data structure completed")
-
-			# Update statistics
-			response_time = time.time() - start_time
-			self.avg_response_time = (self.avg_response_time * (self.parse_count - 1) + response_time) / self.parse_count
-			self.success_count += 1
-
-			# Check if simulation is ready
-			completeness = self.template_manager.check_completeness(
-				self.context['physics_type'], self.context
-			)
-
-			if completeness['complete']:
-				return {
-					"action": "simulation_ready",
-					"message": "Simulation is ready to run!",
-					"context": self.context,
-					"completeness": completeness,
-					"simulation_config": self._create_simulation_config()
-				}
-			else:
-				return {
-					"action": "continue",
-					"message": f"Simulation progress: {len(completeness['missing'])} items missing",
-					"context": self.context,
-					"completeness": completeness,
-					"next_steps": self._get_next_steps(completeness['missing'])
-				}
-
-		except Exception as e:
-			self.error_count += 1
-			logger.error(f"Error parsing prompt: {e}")
-			return {
-				"action": "error",
-				"message": f"Error parsing prompt: {str(e)}",
-				"context": self.context
-			}
-
-	def _is_new_simulation(self, prompt: str) -> bool:
-		"""Check if this is a new simulation request"""
-		new_simulation_keywords = [
-			"new simulation", "start over", "begin", "create", "simulate",
-			"analyze", "model", "design", "calculate"
-		]
-		return any(keyword in prompt.lower() for keyword in new_simulation_keywords)
-
-	def _check_physics_simulation(self, prompt: str) -> dict:
-		"""Check if prompt is about physics simulation"""
-		physics_result = self.prompt_manager.identify_physics_type(prompt)
 		
-		if physics_result.get('error'):
-			return {
-				'is_physics': False,
-				'message': 'Unable to determine if this is a physics simulation. Please clarify.',
-				'physics_type': None,
-				'confidence_scores': {}
-			}
+		# Load geometry keywords from config (for keyword-based detection)
+		self.geometry_keywords = self._load_geometry_keywords_from_config()
 
-		if not physics_result.get('is_physics', False):
-			return {
-				'is_physics': False,
-				'message': 'This does not appear to be a physics simulation. Please provide a physics-related prompt.',
-				'physics_type': None,
-				'confidence_scores': physics_result.get('confidence_scores', {})
-			}
+	def check_completeness(self, physics_type: str, context: dict) -> dict:
+		"""Check completeness of simulation context (used by ParserAgent)"""
+		return self.template_manager.check_completeness(physics_type, context)
 
-		# Determine physics type from confidence scores with heuristic override
-		confidence_scores = physics_result.get('confidence_scores', {})
-		heat_transfer_score = confidence_scores.get('heat_transfer', 0)
-		solid_mechanics_score = confidence_scores.get('solid_mechanics', 0)
-		other_physics_score = confidence_scores.get('other_physics', 0)
+	# DEPRECATED: parse_prompt() removed - replaced by ParserAgent._parse_prompt()
+	# All parsing is now done through the agentic workflow via ParserAgent
 
-		# Heuristic keywords indicating solid mechanics
-		text = (prompt or "").lower()
-		sm_keywords = [
-			"stress", "strain", "load", "force", "pressure load", "traction",
-			"fixed", "clamped", "cantilever", "displacement", "deflection",
-			"beam", "bar", "rod", "young's modulus", "poisson"
-		]
-		if any(k in text for k in sm_keywords):
-			physics_type = 'solid_mechanics'
-			# Boost score so downstream prompts reflect the override
-			confidence_scores['solid_mechanics'] = max(solid_mechanics_score, 0.9)
-			logger.info("Heuristic override: detected solid mechanics by keywords in prompt")
-		else:
-			if heat_transfer_score > solid_mechanics_score and heat_transfer_score > other_physics_score:
-				physics_type = 'heat_transfer'
-			elif solid_mechanics_score > other_physics_score:
-				physics_type = 'solid_mechanics'
-			else:
-					physics_type = 'heat_transfer'  # Default to heat transfer
+	# Removed unused methods: _is_new_simulation, _check_physics_simulation, _check_material, 
+	# _check_geometry, _check_dimensions, _check_boundary_conditions, _detect_bc_for_boundary,
+	# _check_external_loads, _complete_data_structure, _fetch_material_properties, 
+	# _get_context_summary, _request_material_info, _request_geometry_info, 
+	# _request_dimensions_info, _request_boundary_conditions_info, _get_next_steps
+	# These were only used by the deprecated parse_prompt() method
 
-		return {
-			'is_physics': True,
-			'message': f'Physics simulation detected: {physics_type}',
-			'physics_type': physics_type,
-			'confidence_scores': confidence_scores
+	def _get_default_dimensions(self, geometry_type: str) -> dict:
+		"""Get default dimensions for a geometry type"""
+		default_dimensions = {
+			# 1D geometries
+			'line': {'length': 1.0},
+			'rod': {'length': 1.0},
+			'bar': {'length': 1.0},
+			
+			# 2D geometries
+			'plate': {'length': 1.0, 'width': 0.8, 'thickness': 0.02},
+			'membrane': {'length': 1.0, 'width': 0.8},
+			'disc': {'radius': 0.5},
+			'rectangle': {'length': 1.0, 'width': 0.8},
+			'square': {'length': 1.0},
+			
+			# 3D geometries
+			'cube': {'length': 1.0, 'width': 1.0, 'height': 1.0},  # 1x1x1 cube (all sides equal)
+			'box': {'length': 1.0, 'width': 2.0, 'height': 1.0},  # 1x2x1 cuboid
+			'beam': {'length': 1.0, 'width': 0.1, 'height': 0.1},
+			'cylinder': {'radius': 0.5, 'length': 1.0},  # 1m length, 0.5m radius
+			'sphere': {'radius': 0.5},
+			'solid': {'length': 1.0, 'width': 1.0, 'height': 1.0},
+			'rectangular': {'length': 1.0, 'width': 2.0, 'height': 1.0},
 		}
-
-	def _check_material(self, prompt: str) -> dict:
-		"""Check for material information in prompt"""
-		material_result = self.prompt_manager.identify_material_type(
-			prompt, self.context.get('physics_type', ''), self._get_context_summary()
-		)
-
-		if material_result.get('error'):
-			return {'found': False, 'material_type': None}
-
-		if material_result.get('has_material_type', False):
-			return {
-				'found': True,
-				'material_type': material_result.get('material_type')
-			}
-
-		return {'found': False, 'material_type': None}
-
-	def _check_geometry(self, prompt: str) -> dict:
-		"""Check for geometry information in prompt using both AI and geometry classifier"""
-		# First try AI-based detection
-		geometry_result = self.prompt_manager.identify_geometry_type(
-			prompt, self.context.get('physics_type', ''), self._get_context_summary()
-		)
-
-		if geometry_result.get('error'):
-			return {'found': False, 'geometry_type': None}
-
-		if geometry_result.get('has_geometry_type', False):
-			ai_geometry = geometry_result.get('geometry_type')
-			ai_confidence = geometry_result.get('confidence', 0.5)
-			
-			# Use geometry classifier for additional validation and ranking
-			try:
-				from .geometry_classifier import classify_geometry
-				from pathlib import Path
-				
-				dimensions_path = Path(__file__).parent.parent.parent / "config" / "dimensions.json"
-				classifier_results = classify_geometry(prompt, dimensions_path)
-				
-				if classifier_results:
-					best_classifier = classifier_results[0]
-					classifier_geometry = best_classifier['geometry_type']
-					classifier_confidence = best_classifier['confidence']
-					
-					# Use classifier result if it has higher confidence or if AI failed
-					if classifier_confidence > ai_confidence or ai_confidence < 0.3:
-						logger.info(f"Using geometry classifier result: {classifier_geometry} (confidence: {classifier_confidence:.2f})")
-						return {
-							'found': True,
-							'geometry_type': classifier_geometry,
-							'confidence': classifier_confidence,
-							'source': 'classifier'
-						}
-					else:
-						logger.info(f"Using AI result: {ai_geometry} (confidence: {ai_confidence:.2f})")
-						return {
-							'found': True,
-							'geometry_type': ai_geometry,
-							'confidence': ai_confidence,
-							'source': 'ai'
-						}
-			except Exception as e:
-				logger.warning(f"Geometry classifier failed: {e}, using AI result")
-			
-			return {
-				'found': True,
-				'geometry_type': ai_geometry,
-				'confidence': ai_confidence,
-				'source': 'ai'
-			}
-
-		return {'found': False, 'geometry_type': None}
-
-	def _check_dimensions(self, prompt: str) -> dict:
-		"""Check for dimension information in prompt"""
-		geometry_type = self.context.get('geometry_type')
-		if not geometry_type:
-			return {'found': False, 'dimensions': None}
-
-		# Get required dimensions for this geometry type
-		required_dims = self.template_manager.get_geometry_dimension_requirements(
-			self.context.get('physics_type', ''), geometry_type
-		)
-
-		if not required_dims:
-			return {'found': False, 'dimensions': None}
-
-		dimensions_result = self.prompt_manager.parse_dimensions(prompt, geometry_type, required_dims)
-
-		if dimensions_result.get('error'):
-			return {'found': False, 'dimensions': None}
-
-		dimensions = dimensions_result.get('dimensions', {})
-		units = dimensions_result.get('units', {})
 		
-		if dimensions:
-			# Convert units to meters (base unit)
-			converted_dimensions = self._convert_dimension_units(dimensions, units)
-			return {'found': True, 'dimensions': converted_dimensions}
+		# Normalize geometry type to lowercase
+		geometry_type = geometry_type.lower() if geometry_type else ''
+		
+		return default_dimensions.get(geometry_type, {})
+	
 
 	def _convert_dimension_units(self, dimensions: dict, units: dict) -> dict:
-		"""Convert dimension units to meters (base unit)"""
+		"""Convert dimension units to meters (base unit) and apply alias mappings."""
 		converted = {}
 		
 		for dim_name, value in dimensions.items():
@@ -385,7 +114,7 @@ class ContextBasedParser:
 				
 			try:
 				num_value = float(value)
-				unit = units.get(dim_name, 'm').lower()
+				unit = (units.get(dim_name) or 'm').lower()
 				
 				# Convert to meters
 				if unit in ['mm', 'millimeter', 'millimeters']:
@@ -399,130 +128,345 @@ class ContextBasedParser:
 				elif unit in ['ft', 'feet', 'foot']:
 					num_value = num_value * 0.3048
 				elif unit in ['m', 'meter', 'meters']:
-					# Already in meters
-					pass
+					pass  # already meters
 				else:
-					# Default to meters if unit not recognized
 					logger.warning(f"Unknown unit '{unit}' for dimension '{dim_name}', assuming meters")
 				
 				converted[dim_name] = num_value
-				logger.info(f"Converted {dim_name}: {value} {unit} -> {num_value} m")
+				logger.debug(f"Converted {dim_name}: {value} {unit} -> {num_value} m")
 				
 			except (ValueError, TypeError) as e:
 				logger.warning(f"Could not convert dimension '{dim_name}' value '{value}': {e}")
 				converted[dim_name] = value
 		
-		return converted
+		return self._apply_dimension_aliases(converted)
 
-	def _check_boundary_conditions(self, prompt: str) -> dict:
-		geometry_type = self.context.get('geometry_type', '').lower()
-		available_boundaries = self._get_available_boundaries(geometry_type)
+	def _apply_dimension_aliases(self, dimensions: dict) -> dict:
+		"""Apply alias mappings from configuration (e.g., diameter → radius)."""
+		alias_config = self._get_dimension_aliases()
+		if not alias_config:
+			return dimensions
 		
-		# STEP 1: Use boundary location classifier for initial mapping
-		logger.info(f"Step 1: Using boundary location classifier for geometry '{geometry_type}'")
-		classifier_locations = []
+		resolved = dict(dimensions)
 		
+		# First pass: resolve aliases for missing canonical dimensions
+		for canonical, aliases in alias_config.items():
+			current_value = resolved.get(canonical)
+			# Only resolve if canonical is missing or zero
+			if current_value not in (None, '', 0):
+				continue
+			
+			for alias in aliases:
+				value = self._evaluate_dimension_alias(alias, resolved)
+				if value is not None:
+					resolved[canonical] = value
+					logger.debug(f"Resolved alias '{alias}' to '{canonical}' with value {value}")
+					break
+		
+		# Second pass: if we have both diameter and radius, prefer radius (remove diameter)
+		# This handles cases where both were extracted but we only need radius
+		if 'diameter' in resolved and 'radius' in resolved:
+			# If radius was resolved from diameter, remove diameter to avoid confusion
+			if resolved.get('radius') is not None and resolved.get('diameter') is not None:
+				# Check if radius equals diameter/2 (within tolerance)
+				diameter_val = self._to_float(resolved.get('diameter'))
+				radius_val = self._to_float(resolved.get('radius'))
+				if diameter_val is not None and radius_val is not None:
+					expected_radius = diameter_val / 2.0
+					if abs(radius_val - expected_radius) < 1e-6:
+						logger.debug(f"Removing 'diameter' from dimensions (radius={radius_val} already computed from diameter={diameter_val})")
+						del resolved['diameter']
+		
+		return resolved
+
+	def _evaluate_dimension_alias(self, alias: str, values: dict) -> Optional[float]:
+		"""Evaluate a single alias expression against available dimension values."""
+		if not alias:
+			return None
+		
+		alias_clean = alias.strip()
+		
+		# Direct lookup
+		if alias_clean in values:
+			return self._to_float(values.get(alias_clean))
+		
+		# Expressions like "diameter/2"
+		import re
+		expr_match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*/\s*([0-9.]+)$', alias_clean)
+		if expr_match:
+			base_key = expr_match.group(1)
+			denominator = float(expr_match.group(2))
+			base_val = self._to_float(values.get(base_key))
+			if base_val is not None and isfinite(base_val) and denominator != 0:
+				return base_val / denominator
+			return None
+		
+		return None
+
+	def _to_float(self, value: Any) -> Optional[float]:
+		"""Safely convert a value to float."""
+		if value in (None, '', []):
+			return None
 		try:
-			from .boundary_location_classifier import classify_boundary_locations
-			from pathlib import Path
-			
-			geometry_boundaries_path = Path(__file__).parent.parent.parent / "config" / "geometry_boundaries.json"
-			classifier_results = classify_boundary_locations(prompt, geometry_type, geometry_boundaries_path)
-			
-			if classifier_results:
-				# Convert classifier results to boundary_locations format
-				for result in classifier_results:
-					if result['confidence'] > 0.3:  # Only use high-confidence results
-						classifier_locations.append({
-							'vague_location': 'detected by classifier',
-							'specific_boundary': result['boundary'],
-							'value': None,
-							'confidence': result['confidence']
-						})
-				
-				logger.info(f"Boundary location classifier results: {classifier_locations}")
-		except Exception as e:
-			logger.warning(f"Boundary location classifier failed: {e}")
-		
-		# STEP 2: Use AI for additional boundary location detection
-		logger.info("Step 2: Using AI for boundary location mapping")
-		locations_result = self.prompt_manager.analyze_boundary_locations(
-			prompt,
-			geometry_type,
-			available_boundaries
-		)
-		
-		if locations_result.get('error'):
-			logger.error(f"Error in AI boundary location mapping: {locations_result.get('error')}")
-			ai_locations = []
-		else:
-			ai_locations = locations_result.get('boundary_locations', [])
-		
-		# STEP 3: Combine classifier and AI results
-		all_locations = classifier_locations + ai_locations
-		if not all_locations:
-			logger.info("No boundary locations found")
-			return {'found': False, 'boundary_conditions': None}
-
-		logger.info(f"Combined boundary locations: {all_locations}")
-		
-		# STEP 4: Determine boundary condition types for each location
-		logger.info("Step 4: Determining boundary condition types")
-		bc_types_result = self.prompt_manager.analyze_boundary_condition_types(
-			prompt,
-			self.context.get('physics_type', ''),
-			all_locations
-		)
-		
-		if bc_types_result.get('error'):
-			logger.error(f"Error in boundary condition type analysis: {bc_types_result.get('error')}")
-			return {'found': False, 'boundary_conditions': None}
-
-		boundary_conditions = bc_types_result.get('boundary_conditions', [])
-		# Normalize BC synonyms and fix heat-transfer flux/temperature labeling based on units in prompt
-		if boundary_conditions:
+			return float(value)
+		except (TypeError, ValueError):
 			try:
-				pt = self.context.get('physics_type', '').lower()
-				text = (prompt or '').lower()
-				import re
-				wperm2 = re.search(r"\b([-+]?\d*\.?\d+)\s*(w\s*/\s*m\s*\^?2|w\s*/\s*m2)\b", text, re.IGNORECASE)
-				for bc in boundary_conditions:
-					bct = (bc.get('type') or bc.get('bc_type') or '').strip().lower()
-					if pt == 'heat_transfer':
-						if bct in ('neumann', 'flux', 'heat flux', 'heat_flux'):
-							bc['type'] = 'heat_flux'
-							bc['bc_type'] = 'neumann'
-						elif bct in ('dirichlet', 'temperature', 'fixed'):
-							bc['type'] = 'temperature'
-							bc['bc_type'] = 'dirichlet'
-					elif pt == 'solid_mechanics':
-						if bct in ('neumann', 'traction'):
-							bc['type'] = 'traction'
-							bc['bc_type'] = 'neumann'
-						elif bct in ('dirichlet', 'fixed', 'displacement'):
-							bc['type'] = 'fixed'
-							bc['bc_type'] = 'dirichlet'
-				# If heat transfer prompt includes W/m^2 but no flux BC was detected, assign one
-				if self.context.get('physics_type','').lower() == 'heat_transfer' and wperm2:
-					has_flux = any((bc.get('type') or '').lower() in ('heat_flux','flux') for bc in boundary_conditions)
-					if not has_flux and boundary_conditions:
-						boundary_conditions[0]['type'] = 'heat_flux'
-						boundary_conditions[0]['bc_type'] = 'neumann'
-						try:
-							boundary_conditions[0]['value'] = float(wperm2.group(1))
-						except Exception:
-							pass
-			except Exception:
-				pass
+				return float(str(value).strip())
+			except (TypeError, ValueError):
+				return None
 
-		if boundary_conditions:
-			logger.info(f"Final boundary conditions: {boundary_conditions}")
-			return {
-				'found': True,
-				'boundary_conditions': boundary_conditions
+	def _get_dimension_aliases(self) -> Dict[str, Any]:
+		"""Fetch dimension alias mapping from configuration."""
+		if not hasattr(self, "_dimension_aliases_cache"):
+			dim_config = config_manager.get_dimensions_config()
+			self._dimension_aliases_cache = dim_config.get('dimension_aliases', {})
+		return self._dimension_aliases_cache
+
+	def _extract_and_remove_parsed_sections(
+		self, 
+		prompt: str, 
+		geometry_type: Optional[str] = None,
+		physics_type: Optional[str] = None,
+		material_type: Optional[str] = None,
+		dimensions: Optional[dict] = None
+	) -> str:
+		"""
+		Extract and remove parsed sections (geometry, physics, material) from prompt.
+		This leaves only boundary condition information in the cleaned prompt.
+		
+		Args:
+			prompt: Original prompt text
+			geometry_type: Detected geometry type
+			physics_type: Detected physics type
+			material_type: Detected material type
+			dimensions: Detected dimensions dictionary
+		
+		Returns:
+			Cleaned prompt with geometry/physics/material sections removed
+		"""
+		import re
+		
+		cleaned = prompt
+		
+		# Remove geometry-related text
+		if geometry_type:
+			# Remove geometry type mentions
+			geometry_pattern = re.compile(r'\b' + re.escape(geometry_type) + r'\b', re.IGNORECASE)
+			cleaned = geometry_pattern.sub('', cleaned)
+			
+			# Remove geometry keywords (wire, rod, bar, beam, plate, cylinder, cube, etc.)
+			geometry_keywords = ['wire', 'rod', 'bar', 'beam', 'plate', 'cylinder', 'cube', 'box', 'sphere', 'block']
+			for keyword in geometry_keywords:
+				keyword_pattern = re.compile(r'\b' + re.escape(keyword) + r'\b', re.IGNORECASE)
+				cleaned = keyword_pattern.sub('', cleaned)
+		
+		# Remove dimension-related text
+		if dimensions:
+			# Remove dimension values and units (e.g., "1m", "60cm", "diameter 60cm")
+			dimension_patterns = [
+				r'\b\d+\.?\d*\s*(m|cm|mm|km|inch|inches|in)\b',  # Simple dimension values
+				r'\b(length|width|height|thickness|radius|diameter|d|r|l|w|h)\s*[:=]?\s*\d+\.?\d*\s*(m|cm|mm|km|inch|inches|in)?\b',  # Named dimensions
+				r'\b\d+\.?\d*\s*(m|cm|mm|km|inch|inches|in)\s*(long|wide|tall|thick|diameter|radius)\b',  # Dimension with descriptor
+			]
+			for pattern in dimension_patterns:
+				dim_pattern = re.compile(pattern, re.IGNORECASE)
+				cleaned = dim_pattern.sub('', cleaned)
+		
+		# Remove physics-related text (but be careful not to remove BC values)
+		if physics_type:
+			# Remove physics type mentions, but NOT temperature/force values
+			physics_keywords = {
+				'heat_transfer': ['heat transfer', 'thermal conduction', 'thermal convection'],  # Removed 'temperature' to preserve BC values
+				'solid_mechanics': ['mechanics', 'stress analysis', 'strain analysis', 'deformation analysis']  # Removed 'force' and 'load' to preserve BC values
 			}
-
-		return {'found': False, 'boundary_conditions': None}
+			keywords = physics_keywords.get(physics_type, [])
+			for keyword in keywords:
+				keyword_pattern = re.compile(r'\b' + re.escape(keyword) + r'\b', re.IGNORECASE)
+				cleaned = keyword_pattern.sub('', cleaned)
+		
+		# Remove material-related text
+		if material_type:
+			# Remove material type mentions
+			material_pattern = re.compile(r'\b' + re.escape(material_type) + r'\b', re.IGNORECASE)
+			cleaned = material_pattern.sub('', cleaned)
+			
+			# Remove common material keywords
+			material_keywords = ['copper', 'steel', 'aluminum', 'aluminium', 'iron', 'titanium', 'brass', 'bronze']
+			for keyword in material_keywords:
+				keyword_pattern = re.compile(r'\b' + re.escape(keyword) + r'\b', re.IGNORECASE)
+				cleaned = keyword_pattern.sub('', cleaned)
+		
+		# Clean up extra whitespace and punctuation
+		cleaned = re.sub(r'\s+', ' ', cleaned)  # Multiple spaces to single space
+		cleaned = re.sub(r'\s*,\s*,', ',', cleaned)  # Remove double commas
+		cleaned = re.sub(r'^\s*[,.\s]+|[,.\s]+\s*$', '', cleaned)  # Remove leading/trailing punctuation
+		cleaned = cleaned.strip()
+		
+		return cleaned if cleaned else prompt  # Return original if everything was removed
+	
+	
+	def _add_placeholder_boundary_conditions(
+		self, detected_bcs: list, geometry_type: str, physics_type: str, available_boundaries: list
+	) -> list:
+		"""
+		Add placeholder boundary conditions for unspecified boundaries.
+		This ensures all boundaries for the geometry type have BCs defined.
+		CRITICAL: Preserves user-modified boundary conditions - never overwrites them with placeholders.
+		VALIDATES: Filters out BC locations that are not valid for the geometry type.
+		
+		Args:
+			detected_bcs: List of detected boundary conditions (can be empty list or None)
+			geometry_type: The geometry type
+			physics_type: The physics type
+			available_boundaries: List of available boundaries for the geometry type
+		
+		Returns:
+			Complete list of boundary conditions with placeholders for all boundaries
+		"""
+		if not available_boundaries:
+			logger.warning(f"No available boundaries for {geometry_type}, cannot add placeholders")
+			return detected_bcs if detected_bcs else []
+		
+		# Ensure detected_bcs is a list (can be None or empty list)
+		detected_bcs = detected_bcs or []
+		
+		# CRITICAL: Filter and match BC locations to geometry-specific boundaries using confidence scores
+		# Only keep BCs with locations that are in available_boundaries or can be mapped to them
+		# Use confidence scores from boundary location analysis to select best matches
+		valid_detected_bcs = []
+		available_boundaries_lower = [b.lower() for b in available_boundaries]
+		
+		# Track which available boundaries have been matched (to avoid duplicates)
+		matched_boundaries = set()
+		
+		for bc in detected_bcs:
+			if not bc or not bc.get('location'):
+				continue
+			
+			location = bc.get('location', '').strip()
+			location_lower = location.lower().strip()
+			confidence = bc.get('confidence', 0.5)  # Get confidence score (default 0.5)
+			
+			# Check if location is directly valid (exact match)
+			if location in available_boundaries:
+				if location not in matched_boundaries:
+					matched_boundaries.add(location)
+					valid_detected_bcs.append(bc)
+					logger.debug(f"BC location '{location}' matches exactly (confidence: {confidence})")
+				else:
+					logger.debug(f"BC location '{location}' already matched, skipping duplicate")
+			elif location_lower in available_boundaries_lower:
+				# Case-insensitive match - find the exact boundary name
+				exact_match = None
+				for avail in available_boundaries:
+					if avail.lower() == location_lower:
+						exact_match = avail
+						break
+				if exact_match and exact_match not in matched_boundaries:
+					matched_boundaries.add(exact_match)
+					bc_copy = bc.copy()
+					bc_copy['location'] = exact_match
+					valid_detected_bcs.append(bc_copy)
+					logger.debug(f"BC location '{location}' matched case-insensitively to '{exact_match}' (confidence: {confidence})")
+				else:
+					logger.debug(f"BC location '{location}' already matched, skipping duplicate")
+			else:
+				# Try to map the location to a valid one using geometry-specific mappings
+				mapped_location = self._map_boundary_location(location, geometry_type, available_boundaries)
+				if mapped_location:
+					# Use confidence score to decide if this mapping is acceptable
+					# Lower confidence threshold (0.3) allows mappings but filters very uncertain ones
+					if mapped_location not in matched_boundaries:
+						matched_boundaries.add(mapped_location)
+						bc_copy = bc.copy()
+						bc_copy['location'] = mapped_location
+						# Preserve original confidence or use mapping confidence
+						bc_copy['confidence'] = confidence
+						valid_detected_bcs.append(bc_copy)
+						logger.info(f"Mapped BC location '{location}' to '{mapped_location}' for {geometry_type} (confidence: {confidence})")
+					else:
+						logger.debug(f"Mapped location '{mapped_location}' already matched, skipping duplicate for '{location}'")
+				else:
+					# Location cannot be mapped - only skip if confidence is very low
+					if confidence < 0.2:
+						logger.warning(f"BC location '{location}' is not valid for {geometry_type}, cannot be mapped, and confidence is low ({confidence}), skipping")
+					else:
+						# Even if unmappable, warn but could potentially add as-is if needed
+						logger.warning(f"BC location '{location}' is not valid for {geometry_type} and cannot be mapped (confidence: {confidence}), skipping")
+		
+		logger.debug(f"Filtered {len(detected_bcs)} detected BCs to {len(valid_detected_bcs)} valid BCs for {geometry_type} using confidence scores")
+		
+		# Get list of boundaries that already have BCs
+		# CRITICAL: Check for user-modified BCs (source='user' or is_user_modified=True)
+		# These should NEVER be overwritten with placeholders
+		specified_boundaries = {}
+		user_modified_boundaries = set()
+		
+		for bc in valid_detected_bcs:
+			if bc and bc.get('location'):
+				location = bc.get('location')
+				specified_boundaries[location] = bc
+				# Check if this BC is user-modified
+				if bc.get('source') == 'user' or bc.get('is_user_modified') or not bc.get('is_placeholder'):
+					# If source is not 'placeholder' and not explicitly marked as placeholder, treat as user-modified
+					if bc.get('source') != 'placeholder':
+						user_modified_boundaries.add(location)
+						logger.debug(f"Boundary {location} has user-modified BC, will preserve it")
+		
+		logger.debug(f"Adding placeholders for {geometry_type}: {len(valid_detected_bcs)} valid detected BC(s), {len(available_boundaries)} available boundaries, {len(specified_boundaries)} specified, {len(user_modified_boundaries)} user-modified")
+		
+		# Get default BC type from config for unspecified boundaries
+		default_bc_config = None
+		if self.geometry_boundaries:
+			default_bc_config = self.geometry_boundaries.get('default_boundary_conditions', {}).get(physics_type, {})
+		
+		# Set default BC type and value based on physics type
+		if default_bc_config:
+			default_type = default_bc_config.get('type', 'free')
+			default_value = default_bc_config.get('value', 0)
+			default_bc_type = default_bc_config.get('bc_type', 'neumann')
+		else:
+			# Fallback defaults
+			if physics_type == 'heat_transfer':
+				default_type = 'insulated'
+				default_value = 0
+				default_bc_type = 'neumann'
+			elif physics_type == 'solid_mechanics':
+				default_type = 'free'
+				default_value = 0
+				default_bc_type = 'neumann'
+			else:
+				default_type = 'free'
+				default_value = 0
+				default_bc_type = 'neumann'
+		
+		logger.debug(f"Default BC for {physics_type}: {default_type} (value: {default_value}, bc_type: {default_bc_type})")
+		
+		# Create complete BC list starting with valid detected BCs (preserve all user-modified BCs)
+		complete_bcs = valid_detected_bcs.copy() if valid_detected_bcs else []
+		
+		# Add placeholders ONLY for boundaries that don't have BCs (including user-modified ones)
+		for boundary in available_boundaries:
+			if boundary not in specified_boundaries:
+				# Add placeholder BC for this boundary
+				placeholder_bc = {
+					'location': boundary,
+					'type': default_type,
+					'bc_type': default_bc_type,
+					'value': default_value,
+					'confidence': 0.5,
+					'source': 'placeholder',
+					'is_placeholder': True  # Flag to indicate this is a placeholder
+				}
+				complete_bcs.append(placeholder_bc)
+				logger.debug(f"Added placeholder BC for {boundary}: {default_type} (value: {default_value})")
+			elif boundary in user_modified_boundaries:
+				logger.debug(f"Boundary {boundary} has user-modified BC, preserving it (not overwriting with placeholder)")
+			else:
+				logger.debug(f"Boundary {boundary} already has a BC, skipping placeholder")
+		
+		logger.info(f"Added {len(complete_bcs) - len(valid_detected_bcs)} placeholder BC(s) for {geometry_type}, total: {len(complete_bcs)} BC(s) ({len(user_modified_boundaries)} user-modified preserved, {len(detected_bcs) - len(valid_detected_bcs)} invalid locations filtered out)")
+		return complete_bcs
 
 	def _load_geometry_boundaries(self) -> dict:
 		"""Load geometry boundaries configuration from JSON file"""
@@ -531,7 +475,8 @@ class ContextBasedParser:
 		from pathlib import Path
 		
 		# Try to find config file relative to project root
-		current_dir = Path(__file__).parent.parent.parent.parent
+		# From nlp_parser/src/context_based_parser.py, go up 3 levels to project root
+		current_dir = Path(__file__).parent.parent.parent
 		config_path = current_dir / "config" / "geometry_boundaries.json"
 		
 		if config_path.exists():
@@ -540,6 +485,125 @@ class ContextBasedParser:
 		else:
 			logger.warning(f"Geometry boundaries config not found at {config_path}, using defaults")
 			return {}
+	
+	def _load_geometry_keywords_from_config(self) -> dict:
+		"""Load geometry keywords from config files instead of hardcoding"""
+		import json
+		from pathlib import Path
+		
+		try:
+			current_dir = Path(__file__).parent.parent.parent
+			
+			# Load geometry types from dimensions.json (geometry_dimensions section)
+			dimensions_path = current_dir / "config" / "dimensions.json"
+			geometry_keywords = {}
+			geometry_dimension_map = {}  # Map geometry type to dimension group
+			
+			if dimensions_path.exists():
+				with open(dimensions_path, 'r') as f:
+					dim_data = json.load(f)
+				
+				# First, get all geometry types from geometry_dimensions
+				geom_dims = dim_data.get('geometry_dimensions', {})
+				for dim_group in ['1D', '2D', '3D']:
+					if dim_group in geom_dims:
+						for geometry_type in geom_dims[dim_group].keys():
+							geometry_keywords[geometry_type] = [geometry_type]
+							geometry_dimension_map[geometry_type] = dim_group
+				
+				# Then, add aliases from geometry_type_aliases
+				aliases = dim_data.get('geometry_type_aliases', {})
+				for dim_group in ['1D', '2D', '3D']:
+					if dim_group in aliases:
+						for geometry_type, synonym_list in aliases[dim_group].items():
+							# If geometry type exists, add synonyms to it
+							if geometry_type in geometry_keywords:
+								geometry_keywords[geometry_type].extend(synonym_list)
+								# Ensure dimension is mapped
+								if geometry_type not in geometry_dimension_map:
+									geometry_dimension_map[geometry_type] = dim_group
+							else:
+								# If geometry type doesn't exist in geometry_dimensions, create entry
+								# This handles cases where aliases reference types not in geometry_dimensions
+								geometry_keywords[geometry_type] = [geometry_type] + list(synonym_list)
+								geometry_dimension_map[geometry_type] = dim_group
+			
+			# Also load from geometry_boundaries.json to get all available geometries
+			# This ensures we have all geometries even if they're missing from dimensions.json
+			boundaries_path = current_dir / "config" / "geometry_boundaries.json"
+			if boundaries_path.exists():
+				with open(boundaries_path, 'r') as f:
+					boundaries_data = json.load(f)
+				
+				geometries = boundaries_data.get('geometries', {})
+				# Handle both lowercase ('1d', '2d', '3d') and uppercase ('1D', '2D', '3D') formats
+				for dim_group_lower in ['1d', '2d', '3d']:
+					# Normalize to uppercase for consistency
+					dim_group = dim_group_lower.upper()
+					if dim_group_lower in geometries:
+						for geometry_type in geometries[dim_group_lower].keys():
+							# Ensure geometry type exists in keywords
+							if geometry_type not in geometry_keywords:
+								geometry_keywords[geometry_type] = [geometry_type]
+								logger.debug(f"Added geometry type '{geometry_type}' from geometry_boundaries.json")
+							# Map dimension group (use uppercase for consistency)
+							if geometry_type not in geometry_dimension_map:
+								geometry_dimension_map[geometry_type] = dim_group
+			
+			# Add dimension prefix variants (e.g., "1d rod", "2d plate")
+			for geometry_type, keywords in geometry_keywords.items():
+				# Get dimension group from map (loaded from config files)
+				dim_group = geometry_dimension_map.get(geometry_type)
+				
+				# If not found in map, try to determine from geometry type name
+				if not dim_group:
+					if geometry_type in ['line', 'rod', 'bar']:
+						dim_group = '1D'
+					elif geometry_type in ['plate', 'membrane', 'disc', 'rectangle', 'square']:
+						dim_group = '2D'
+					elif geometry_type in ['cube', 'box', 'beam', 'cylinder', 'sphere']:
+						dim_group = '3D'
+				
+				# Add dimension prefix variants
+				if dim_group:
+					prefix_map = {'1D': ['1d', '1-d'], '2D': ['2d', '2-d'], '3D': ['3d', '3-d']}
+					for prefix in prefix_map.get(dim_group, []):
+						# Add prefixes to geometry type and first few keywords
+						for keyword in [geometry_type] + keywords[:5]:  # Limit to avoid too many variations
+							prefixed_keyword = f'{prefix} {keyword}'
+							if prefixed_keyword not in keywords:
+								keywords.append(prefixed_keyword)
+					
+					# Remove duplicates and sort by length (longest first)
+					geometry_keywords[geometry_type] = sorted(list(set(keywords)), key=len, reverse=True)
+			
+			logger.debug(f"Loaded {len(geometry_keywords)} geometry types from config")
+			return geometry_keywords
+			
+		except Exception as e:
+			logger.warning(f"Failed to load geometry keywords from config: {e}, using defaults")
+			return self._get_default_geometry_keywords()
+	
+	def _get_default_geometry_keywords(self) -> dict:
+		"""Fallback default geometry keywords if config file is not available"""
+		return {
+			# 1D geometries
+			'rod': ['1d rod', '1-d rod', 'rod'],
+			'bar': ['1d bar', '1-d bar', 'bar'],
+			'line': ['1d line', '1-d line', '1d', 'line'],
+			# 2D geometries
+			'plate': ['2d plate', '2-d plate', 'plate'],
+			'rectangle': ['2d rectangle', '2-d rectangle', 'rectangle'],
+			'square': ['2d square', '2-d square', 'square'],
+			'disc': ['2d circle', '2-d circle', 'disc', 'disk', 'circle'],
+			'membrane': ['2d membrane', '2-d membrane', 'membrane'],
+			# 3D geometries
+			'cube': ['3d cube', '3-d cube', 'cube'],
+			'box': ['3d box', '3-d box', 'rectangular solid', 'box', 'rectangular'],
+			'beam': ['3d beam', '3-d beam', 'beam'],
+			'cylinder': ['3d cylinder', '3-d cylinder', 'cylinder', 'pipe', 'tube'],
+			'sphere': ['3d sphere', '3-d sphere', 'sphere', 'ball'],
+		}
 
 	def _add_default_boundary_conditions(self, bcs: list) -> list:
 		"""Add default boundary conditions for unspecified boundaries based on geometry"""
@@ -557,7 +621,7 @@ class ContextBasedParser:
 		
 		# Skip if "all_boundary" is already specified
 		if 'all_boundary' in specified_locations or 'all' in specified_locations:
-			logger.info("All boundaries already specified, skipping defaults")
+			logger.debug("All boundaries already specified, skipping defaults")
 			return bcs
 		
 		# Get default BC from configuration
@@ -593,331 +657,113 @@ class ContextBasedParser:
 					'bc_type': default_bc_type,
 					'confidence': 0.5
 				})
-				logger.info(f"Added default {default_type} BC on {boundary}")
+				logger.debug(f"Added default {default_type} BC on {boundary}")
 		
 		return result
 
 	def _get_available_boundaries(self, geometry_type: str) -> list:
 		"""Get available boundaries for a geometry type from configuration"""
+		if not geometry_type:
+			return []
+		
+		# Normalize geometry type to lowercase for config lookup
+		geometry_type_lower = geometry_type.lower()
+		
 		if not self.geometry_boundaries:
 			# Fallback if config not loaded
 			defaults = {
 				'line': ['left', 'right'], 'rod': ['left', 'right'], 'bar': ['left', 'right'],
 				'plate': ['left', 'right', 'top', 'bottom'], 'membrane': ['left', 'right', 'top', 'bottom'],
 				'rectangle': ['left', 'right', 'top', 'bottom'], 'square': ['left', 'right', 'top', 'bottom'],
-				'disc': ['circumference'],
+				'disc': ['circumference', 'center'],
 				'cube': ['left', 'right', 'top', 'bottom', 'front', 'back'],
 				'box': ['left', 'right', 'top', 'bottom', 'front', 'back'],
 				'beam': ['left', 'right', 'top', 'bottom', 'front', 'back'],
 				'cylinder': ['top', 'bottom', 'curved surface'],
-				'sphere': ['surface']
+				'sphere': ['center', 'surface']
 			}
-			return defaults.get(geometry_type, ['left', 'right', 'top', 'bottom'])
+			return defaults.get(geometry_type_lower, ['left', 'right', 'top', 'bottom'])
 		
-		# Search in all dimension categories
+		# Search in all dimension categories (config uses lowercase keys)
 		for dim_group in ['1d', '2d', '3d']:
 			if dim_group in self.geometry_boundaries.get('geometries', {}):
-				if geometry_type in self.geometry_boundaries['geometries'][dim_group]:
-					return self.geometry_boundaries['geometries'][dim_group][geometry_type].get('available_boundaries', [])
+				# Config keys are lowercase, so use lowercase geometry type
+				if geometry_type_lower in self.geometry_boundaries['geometries'][dim_group]:
+					boundaries = self.geometry_boundaries['geometries'][dim_group][geometry_type_lower].get('available_boundaries', [])
+					if boundaries:
+						logger.debug(f"Found boundaries for {geometry_type} (normalized: {geometry_type_lower}) in {dim_group}: {boundaries}")
+						return boundaries
 		
+		logger.warning(f"No boundaries found in config for geometry type: {geometry_type} (normalized: {geometry_type_lower})")
 		return ['left', 'right', 'top', 'bottom']  # default fallback
-
-	def _check_external_loads(self, prompt: str) -> dict:
-		"""Check for external loads in prompt"""
-		loads_result = self.prompt_manager.analyze_external_loads(
-			prompt, self.context.get('physics_type', ''), self._get_context_summary()
-		)
-
-		if loads_result.get('error'):
-			return {'found': False, 'external_loads': None}
-
-		if loads_result.get('has_external_loads', False):
-			return {
-				'found': True,
-				'external_loads': loads_result.get('external_loads', [])
-			}
-
-		return {'found': False, 'external_loads': None}
-
-	def _complete_data_structure(self, prompt: str) -> dict:
-		"""Complete the data structure with missing information"""
-		try:
-			# Preserve existing material properties before calling AI completion
-			existing_material_properties = self.context.get('material_properties', {})
+	
+	def _map_boundary_location(self, location: str, geometry_type: str, available_boundaries: list) -> Optional[str]:
+		"""
+		Map a vague boundary location to a specific boundary for the geometry type.
+		Uses location mappings from geometry_boundaries.json config file.
+		"""
+		if not location or not available_boundaries:
+			return None
+		
+		location_lower = location.lower().strip()
+		geometry_type_lower = geometry_type.lower().strip() if geometry_type else ''
+		
+		# Geometry-specific mappings from configuration
+		if self.geometry_boundaries:
+			geo_specific = self.geometry_boundaries.get('geometry_specific_location_mappings', {})
+			if geometry_type_lower in geo_specific:
+				mapped = self._match_location_with_map(location_lower, geo_specific[geometry_type_lower], available_boundaries)
+				if mapped:
+					return mapped
+		
+		# Use location mappings from geometry_boundaries.json config file
+		if self.geometry_boundaries:
+			mappings = self.geometry_boundaries.get('location_mappings', {}).get('vague_to_specific', {})
 			
-			completion_result = self.prompt_manager.complete_data_structure(
-				prompt,
-				self.context.get('physics_type', ''),
-				self.context.get('material_type', ''),
-				self.context.get('geometry_type', ''),
-				self.context.get('boundary_conditions', {}),
-				self._get_context_summary()
-			)
-
-			if completion_result.get('error'):
-				return {'success': False, 'data': {}}
-
-			# If we had real material properties, preserve them instead of AI placeholders
-			if existing_material_properties and any(isinstance(v, (int, float)) for v in existing_material_properties.values()):
-				logger.info("Preserving existing material properties from JSON file")
-				completion_result['material_properties'] = existing_material_properties
-
-			return {
-				'success': True,
-				'data': completion_result
-			}
-		except Exception as e:
-			logger.error(f"Error completing data structure: {e}")
-			return {'success': False, 'data': {}}
-
-	def _fetch_material_properties(self):
-		"""Fetch material properties for the current material type"""
-		try:
-			material_type = self.context.get('material_type')
-			physics_type = self.context.get('physics_type', '')
-
-			if material_type and physics_type:
-				# Try to load from JSON file first
-				json_properties = self._load_material_properties_from_json(material_type)
-				if json_properties:
-					self.context['material_properties'] = json_properties
-					logger.info(f"Loaded material properties for {material_type} from JSON file")
-					
-					# Log the properties
-					prop_summary = []
-					for prop_name, prop_value in json_properties.items():
-						prop_summary.append(f"{prop_name}: {prop_value}")
-					logger.info(f"Material properties for {material_type}: {', '.join(prop_summary)}")
-					return
-				
-				# Fallback to AI if JSON not found
-				logger.info(f"Material {material_type} not found in JSON file, using AI fallback")
-				properties_result = self.prompt_manager.get_material_properties(material_type, physics_type)
-				if not properties_result.get('error'):
-					raw_properties = properties_result.get('properties', {})
-					# Parse material properties to extract numeric values
-					parsed_properties = self._parse_material_properties(raw_properties, material_type, physics_type)
-					self.context['material_properties'] = parsed_properties
-					
-					# Enhanced logging for material properties
-					prop_summary = []
-					for prop_name, prop_value in parsed_properties.items():
-						if isinstance(prop_value, (int, float)):
-							prop_summary.append(f"{prop_name}: {prop_value}")
-						else:
-							prop_summary.append(f"{prop_name}: {prop_value}")
-					
-					logger.info(f"Material properties fetched for {material_type}: {', '.join(prop_summary)}")
-					logger.info(f"Full material properties data: {parsed_properties}")
-		except Exception as e:
-			logger.error(f"Error fetching material properties: {e}")
-
-	def _load_material_properties_from_json(self, material_type: str) -> dict:
-		"""Load material properties from JSON file"""
-		try:
-			import json
-			import os
+			# Direct lookup
+			if location_lower in mappings:
+				mapped = mappings[location_lower]
+				if mapped in available_boundaries:
+					return mapped
 			
-			# Get the path to the config directory
-			current_dir = os.path.dirname(os.path.abspath(__file__))
-			config_path = os.path.join(current_dir, '..', '..', 'config', 'material_properties.json')
-			config_path = os.path.normpath(config_path)
+			# Partial match: check if location contains any mapping key
+			for vague_key, specific_boundary in mappings.items():
+				if vague_key in location_lower:
+					if specific_boundary in available_boundaries:
+						return specific_boundary
 			
-			logger.info(f"Looking for material properties file at: {config_path}")
-			logger.info(f"Current directory: {current_dir}")
-			
-			if not os.path.exists(config_path):
-				logger.warning(f"Material properties file not found at {config_path}")
-				return {}
-			
-			with open(config_path, 'r') as f:
-				materials_data = json.load(f)
-			
-			logger.info(f"Loaded materials from JSON: {list(materials_data.keys())}")
-			
-			# Try exact match first
-			if material_type.lower() in materials_data:
-				logger.info(f"Found exact match for {material_type}")
-				return materials_data[material_type.lower()]
-			
-			# Try partial matches
-			material_lower = material_type.lower()
-			for key, properties in materials_data.items():
-				if material_lower in key or key in material_lower:
-					logger.info(f"Found partial match: {key} for {material_type}")
-					return properties
-			
-			logger.warning(f"No material properties found for {material_type}")
-			return {}
-			
-		except Exception as e:
-			logger.error(f"Error loading material properties from JSON: {e}")
-			return {}
+			# Reverse: check if any mapping value matches location
+			for vague_key, specific_boundary in mappings.items():
+				if location_lower in vague_key or vague_key in location_lower:
+					if specific_boundary in available_boundaries:
+						return specific_boundary
+		
+		# Fallback: check if location already matches an available boundary (case-insensitive)
+		for avail_bound in available_boundaries:
+			if location_lower == avail_bound.lower() or location_lower in avail_bound.lower() or avail_bound.lower() in location_lower:
+				return avail_bound
+		
+		return None
 
-	def _parse_material_properties(self, raw_properties: dict, material_type: str, physics_type: str) -> dict:
-		"""Parse material properties to extract numeric values from strings with units"""
-		parsed = {}
+	def _match_location_with_map(self, location_lower: str, mapping: Dict[str, str], available_boundaries: list) -> Optional[str]:
+		"""Match a boundary location against a provided mapping dictionary."""
+		if not mapping:
+			return None
 		
-		# Default material properties for common materials
-		material_defaults = {
-			'steel': {
-				'density': 7850.0,
-				'thermal_conductivity': 50.0,
-				'specific_heat': 460.0,
-				'youngs_modulus': 200e9,
-				'poisson_ratio': 0.3,
-				'yield_strength': 250e6,
-				'thermal_expansion': 12e-6
-			},
-			'aluminum': {
-				'density': 2700.0,
-				'thermal_conductivity': 205.0,
-				'specific_heat': 900.0,
-				'youngs_modulus': 70e9,
-				'poisson_ratio': 0.33,
-				'yield_strength': 95e6,
-				'thermal_expansion': 23e-6
-			},
-			'copper': {
-				'density': 8960.0,
-				'thermal_conductivity': 400.0,
-				'specific_heat': 385.0,
-				'youngs_modulus': 110e9,
-				'poisson_ratio': 0.34,
-				'yield_strength': 70e6,
-				'thermal_expansion': 17e-6
-			},
-			'concrete': {
-				'density': 2300.0,
-				'thermal_conductivity': 1.7,
-				'specific_heat': 880.0,
-				'youngs_modulus': 30e9,
-				'poisson_ratio': 0.2,
-				'compressive_strength': 30e6,
-				'thermal_expansion': 10e-6
-			},
-			'wood': {
-				'density': 600.0,
-				'thermal_conductivity': 0.12,
-				'specific_heat': 1700.0,
-				'youngs_modulus': 12e9,
-				'poisson_ratio': 0.4,
-				'compressive_strength': 40e6,
-				'thermal_expansion': 5e-6
-			}
-		}
+		# Exact match
+		if location_lower in mapping:
+			mapped = mapping[location_lower]
+			if mapped in available_boundaries:
+				return mapped
 		
-		# Use defaults for the material type if available
-		defaults = material_defaults.get(material_type.lower(), {})
+		# Partial match (substring)
+		for vague_key, target in mapping.items():
+			if vague_key in location_lower or location_lower in vague_key:
+				if target in available_boundaries:
+					return target
 		
-		for prop_name, prop_value in raw_properties.items():
-			if isinstance(prop_value, (int, float)):
-				# Already a numeric value
-				parsed[prop_name] = prop_value
-			elif isinstance(prop_value, str):
-				# Try to extract numeric value from string
-				import re
-				# Look for numbers in the string
-				numbers = re.findall(r'[\d.]+(?:[eE][+-]?\d+)?', prop_value)
-				if numbers:
-					try:
-						# Use the first number found
-						parsed[prop_name] = float(numbers[0])
-					except ValueError:
-						# If parsing fails, use default if available
-						parsed[prop_name] = defaults.get(prop_name, 1.0)
-				else:
-					# No numbers found, use default if available
-					parsed[prop_name] = defaults.get(prop_name, 1.0)
-			else:
-				# Unknown type, use default if available
-				parsed[prop_name] = defaults.get(prop_name, 1.0)
-		
-		# Ensure we have all required properties for the physics type
-		if physics_type == 'solid_mechanics':
-			required_props = ['youngs_modulus', 'poisson_ratio', 'density']
-			for prop in required_props:
-				if prop not in parsed:
-					parsed[prop] = defaults.get(prop, 1.0)
-		elif physics_type == 'heat_transfer':
-			required_props = ['thermal_conductivity', 'specific_heat', 'density']
-			for prop in required_props:
-				if prop not in parsed:
-					parsed[prop] = defaults.get(prop, 1.0)
-		
-		return parsed
+		return None
 
-	def _get_context_summary(self) -> str:
-		"""Get a summary of the current context"""
-		summary_parts = []
-		
-		if self.context.get('physics_type'):
-			summary_parts.append(f"Physics: {self.context['physics_type']}")
-		
-		if self.context.get('material_type'):
-			summary_parts.append(f"Material: {self.context['material_type']}")
-		
-		if self.context.get('geometry_type'):
-			summary_parts.append(f"Geometry: {self.context['geometry_type']}")
-		
-		if self.context.get('geometry_dimensions'):
-			dims = self.context['geometry_dimensions']
-			summary_parts.append(f"Dimensions: {dims}")
-		
-		return ", ".join(summary_parts)
-
-	def _request_material_info(self) -> dict:
-		"""Request material information from user"""
-		return {
-			"action": "request_info",
-			"message": "What material is this simulation for? (e.g., steel, aluminum, copper)",
-			"context": self.context,
-			"missing": "material_type"
-		}
-
-	def _request_geometry_info(self) -> dict:
-		"""Request geometry information from user"""
-		return {
-			"action": "request_info",
-			"message": "What geometry are you simulating? (e.g., beam, plate, cylinder, cube)",
-			"context": self.context,
-			"missing": "geometry_type"
-		}
-
-	def _request_dimensions_info(self) -> dict:
-		"""Request dimension information from user"""
-		geometry_type = self.context.get('geometry_type', 'object')
-		return {
-			"action": "request_info",
-			"message": f"What are the dimensions of the {geometry_type}? (e.g., length, width, height, radius)",
-			"context": self.context,
-			"missing": "geometry_dimensions"
-		}
-
-	def _request_boundary_conditions_info(self) -> dict:
-		"""Request boundary conditions from user"""
-		return {
-			"action": "request_info",
-			"message": "What are the boundary conditions? (e.g., fixed, free, temperature, force)",
-			"context": self.context,
-			"missing": "boundary_conditions"
-		}
-
-	def _get_next_steps(self, missing_items: list) -> list:
-		"""Get next steps based on missing items"""
-		next_steps = []
-		
-		for item in missing_items:
-			if item == "material_type":
-				next_steps.append("Specify the material type")
-			elif item == "geometry_type":
-				next_steps.append("Specify the geometry type")
-			elif item.startswith("geometry_dimension_"):
-				next_steps.append(f"Provide the {item.replace('geometry_dimension_', '')} dimension")
-			elif item == "boundary_conditions":
-				next_steps.append("Specify boundary conditions")
-		
-		return next_steps
 
 	def _create_simulation_config(self) -> dict:
 		"""Create complete simulation configuration"""
@@ -932,7 +778,7 @@ class ContextBasedParser:
 	def clear_context(self):
 		"""Clear the simulation context"""
 		self.context = {}
-		logger.info("Context cleared")
+		logger.debug("Context cleared")
 
 	def get_context(self) -> dict:
 		"""Get current simulation context"""
@@ -941,7 +787,7 @@ class ContextBasedParser:
 	def update_context(self, updates: dict):
 		"""Update simulation context with new information"""
 		self.context.update(updates)
-		logger.info(f"Context updated: {list(updates.keys())}")
+		logger.debug(f"Context updated: {list(updates.keys())}")
 
 	def validate_context(self) -> dict:
 		"""Validate current simulation context"""
@@ -982,7 +828,4 @@ class ContextBasedParser:
 		"""Set the OpenAI model to use"""
 		self.model = model
 		self.prompt_manager.model = model
-		logger.info(f"Model changed to: {model}")
-
-# Import time for response time tracking
-import time
+		logger.debug(f"Model changed to: {model}")

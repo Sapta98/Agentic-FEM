@@ -8,11 +8,11 @@
       },
       "rod": {
         "available_boundaries": ["left", "right"],
-        "description": "1D rod/bar"
+        "description": "1D rod structure"
       },
       "bar": {
         "available_boundaries": ["left", "right"],
-        "description": "1D bar"
+        "description": "1D bar structure"
       }
     },
     "2d": {
@@ -55,7 +55,7 @@
         "description": "3D cylinder"
       },
       "sphere": {
-        "available_boundaries": ["surface", "center"],
+        "available_boundaries": ["center", "surface"],
         "description": "3D sphere"
       }
     }
@@ -87,6 +87,44 @@
       "entire boundary": "all",
       "all": "all",
       "all_boundary": "all_boundary"
+    }
+  },
+  "geometry_specific_location_mappings": {
+    "cylinder": {
+      "one end": "top",
+      "other end": "bottom",
+      "opposite end": "bottom",
+      "first end": "top",
+      "second end": "bottom",
+      "start": "top",
+      "inlet": "top",
+      "outlet": "bottom",
+      "near end": "top",
+      "far end": "bottom",
+      "top end": "top",
+      "bottom end": "bottom",
+      "side": "curved surface",
+      "side surface": "curved surface",
+      "curved side": "curved surface",
+      "outer surface": "curved surface"
+    },
+    "sphere": {
+      "boundary": "surface",
+      "outer boundary": "surface",
+      "outer surface": "surface",
+      "spherical boundary": "surface",
+      "sphere boundary": "surface",
+      "sphere surface": "surface",
+      "sphere_surface": "surface",
+      "spherical_boundary": "surface",
+      "surface": "surface",
+      "circumference": "surface",
+      "edge": "surface",
+      "perimeter": "surface",
+      "center": "center",
+      "middle": "center",
+      "origin": "center",
+      "core": "center"
     }
   },
   "default_boundary_conditions": {

@@ -231,12 +231,43 @@ def validate_geometry_dimensions(geometry_type: str, dimensions: Dict[str, float
 	alternative_dims = geometry_config.get('alternative_dimensions', {})
 	
 	# Check for missing dimensions, considering alternatives
+	# Convert dimensions to numbers first to avoid type comparison errors
 	missing_dims = []
 	for dim in required_dims:
-		if dim not in dimensions:
+		dim_value = dimensions.get(dim)
+		# Convert to number if it's a string
+		try:
+			if isinstance(dim_value, str):
+				dim_value = float(dim_value.strip()) if dim_value.strip() else None
+			elif dim_value is not None and not isinstance(dim_value, (int, float)):
+				dim_value = float(dim_value)
+		except (ValueError, TypeError):
+			dim_value = None
+		
+		# Update dimensions dict with converted value if conversion succeeded
+		if dim_value is not None:
+			dimensions[dim] = dim_value
+		
+		if dim not in dimensions or dim_value is None or dim_value <= 0:
 			# Check if there's an alternative dimension name
 			alternatives = alternative_dims.get(dim, [])
-			has_alternative = any(alt in dimensions for alt in alternatives)
+			has_alternative = False
+			for alt in alternatives:
+				if alt in dimensions:
+					alt_value = dimensions[alt]
+					try:
+						if isinstance(alt_value, str):
+							alt_value = float(alt_value.strip()) if alt_value.strip() else None
+						elif alt_value is not None and not isinstance(alt_value, (int, float)):
+							alt_value = float(alt_value)
+						# Update dimensions dict with converted value
+						if alt_value is not None:
+							dimensions[alt] = alt_value
+						if alt_value is not None and alt_value > 0:
+							has_alternative = True
+							break
+					except (ValueError, TypeError):
+						continue
 			if not has_alternative:
 				missing_dims.append(dim)
 	
@@ -244,36 +275,67 @@ def validate_geometry_dimensions(geometry_type: str, dimensions: Dict[str, float
 		result['valid'] = False
 		result['errors'].append(f"Missing required dimensions: {missing_dims}")
 
-	# Check for invalid dimension values
+	# Check for invalid dimension values (ensure they're numbers, not strings)
 	for dim_name, value in dimensions.items():
-		if value <= 0:
+		if value is None:
 			result['valid'] = False
-			result['errors'].append(f"Dimension {dim_name} must be positive, got {value}")
-		elif value < 0.001:
-			result['warnings'].append(f"Dimension {dim_name} is very small ({value}), consider scaling")
+			result['errors'].append(f"Dimension {dim_name} is None")
+		else:
+			# Convert string values to float if needed
+			try:
+				if isinstance(value, str):
+					value = float(value.strip()) if value.strip() else None
+				elif not isinstance(value, (int, float)):
+					value = float(value)
+				
+				if value is None:
+					result['valid'] = False
+					result['errors'].append(f"Dimension {dim_name} is None or empty")
+				elif value <= 0:
+					result['valid'] = False
+					result['errors'].append(f"Dimension {dim_name} must be positive, got {value}")
+				elif value < 0.001:
+					result['warnings'].append(f"Dimension {dim_name} is very small ({value}), consider scaling")
+				# Update the dimensions dict with the converted value
+				dimensions[dim_name] = value
+			except (ValueError, TypeError) as e:
+				result['valid'] = False
+				result['errors'].append(f"Dimension {dim_name} has invalid value '{value}' (type: {type(value).__name__}): {e}")
 
-	# Geometry-specific validations
-	if geometry_type in ['beam']:
-		length = dimensions.get('length', 0)
-		width = dimensions.get('width', 0)
-		height = dimensions.get('height', 0)
-		
-		if length > 0 and width > 0 and height > 0:
-			aspect_ratio = length / min(width, height)
-			if aspect_ratio > 50:
-				result['suggestions'].append("Very high aspect ratio detected - consider 1D approximation")
-			elif aspect_ratio < 0.1:
-				result['warnings'].append("Very low aspect ratio - may cause mesh quality issues")
+	# Geometry-specific validations (skip if any dimensions are None)
+	# Check if all required dimensions are present and not None before doing comparisons
+	try:
+		if geometry_type in ['beam']:
+			length = dimensions.get('length')
+			width = dimensions.get('width')
+			height = dimensions.get('height')
+			
+			# Only validate if all dimensions are valid numbers (not None)
+			if length is not None and width is not None and height is not None:
+				if length > 0 and width > 0 and height > 0:
+					aspect_ratio = length / min(width, height)
+					if aspect_ratio > 50:
+						result['suggestions'].append("Very high aspect ratio detected - consider 1D approximation")
+					elif aspect_ratio < 0.1:
+						result['warnings'].append("Very low aspect ratio - may cause mesh quality issues")
 
-	elif geometry_type in ['plate', 'membrane', 'square']:
-		thickness = dimensions.get('thickness', 0)
-		length = dimensions.get('length', 0)
-		width = dimensions.get('width', length)  # For square, width = length
-		
-		if thickness > 0 and length > 0 and width > 0:
-			thin_ratio = min(length, width) / thickness
-			if thin_ratio > 20:
-				result['suggestions'].append("Very thin structure - consider 2D shell approximation")
+		elif geometry_type in ['plate', 'membrane', 'square']:
+			thickness = dimensions.get('thickness')
+			length = dimensions.get('length')
+			width = dimensions.get('width')
+			# For square, if width is None, use length as default
+			if width is None and length is not None:
+				width = length
+			
+			# Only validate if all dimensions are valid numbers (not None)
+			if thickness is not None and length is not None and width is not None:
+				if thickness > 0 and length > 0 and width > 0:
+					thin_ratio = min(length, width) / thickness
+					if thin_ratio > 20:
+						result['suggestions'].append("Very thin structure - consider 2D shell approximation")
+	except (TypeError, ValueError):
+		# Skip geometry-specific validations if there are type errors
+		pass
 
 	return result
 

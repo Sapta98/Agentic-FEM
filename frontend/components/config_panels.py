@@ -324,7 +324,7 @@ class ConfigPanels:
 		new_settings: New settings to apply
 		"""
 		self.settings.update(new_settings)
-		logger.info(f"Updated config panels settings: {new_settings}")
+		logger.debug(f"Updated config panels settings: {new_settings}")
 
 	def get_panel_config(self, panel_name: str) -> Dict[str, Any]:
 		"""

@@ -78,13 +78,14 @@ class FrontendManager:
 		self._initialize_visualizers()
 
 		self.is_initialized = True
-		logger.info("Frontend manager initialized successfully")
+		logger.debug("Frontend manager initialized successfully")
 		return True
 
 	def _setup_component_integration(self) -> None:
 		"""Setup integration between components"""
-		# Configure terminal interface
-		self.terminal_interface.update_api_endpoints()
+		# Don't update API endpoints - they are now dynamically constructed in JavaScript
+		# using window.location.origin to work with any host (AWS IP, domain, localhost)
+		# self.terminal_interface.update_api_endpoints()  # DISABLED - using dynamic URLs
 
 		# Don't load external CSS files to preserve terminal interface styling
 		# The terminal interface has its own embedded CSS with black background and green styling
@@ -214,7 +215,7 @@ class FrontendManager:
 				'colormap': new_settings['default_field_colormap']
 			})
 
-		logger.info(f"Updated frontend settings: {new_settings}")
+		logger.debug(f"Updated frontend settings: {new_settings}")
 
 	def customize_theme(self, theme_config: Dict[str, str]) -> None:
 		"""

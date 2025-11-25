@@ -93,7 +93,8 @@ class ResultDisplay:
 			f.write(html_content)
 
 		logger.info(f"Created results report: {filepath}")
-		return f"http://localhost:8080/static/{filename}"
+		# Return relative path - frontend will handle host resolution
+		return f"/static/{filename}"
 
 	def _generate_results_html(self, results: Dict[str, Any], is_report: bool = False) -> str:
 		"""
@@ -359,7 +360,7 @@ class ResultDisplay:
 		new_settings: New settings to apply
 		"""
 		self.settings.update(new_settings)
-		logger.info(f"Updated result display settings: {new_settings}")
+		logger.debug(f"Updated result display settings: {new_settings}")
 
 	def cleanup_old_reports(self, max_age_hours: int = 24) -> int:
 		"""

@@ -4,8 +4,8 @@
   "geometry": {
     "type": "cylinder",
     "dimensions": {
-      "length": 1.0,
-      "radius": 0.3
+      "length": 0.3,
+      "radius": 1.0
     }
   },
   "material": {
@@ -37,10 +37,11 @@
       "visualization_format": "vtk",
       "save_mesh": true
     },
-    "last_updated": "2025-10-30T14:45:20.049572"
+    "last_updated": "2025-11-14T21:44:11.450553"
   },
   "configuration_files": {
     "dimensions": "config/dimensions.json",
     "boundary_conditions": "config/boundary_conditions.json"
-  }
+  },
+  "pde_config": {}
 }

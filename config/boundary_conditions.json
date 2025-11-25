@@ -16,14 +16,14 @@
           },
           "validation": {
             "required_fields": ["location", "value"],
-            "value_range": [0.0, 2000.0],
+            "value_range": [-273.15, 2000.0],
             "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
           }
         },
         {
           "name": "Heat Flux",
           "type": "neumann",
-          "description": "Prescribed heat flux on boundary (positive outward)",
+          "description": "Prescribed heat flux on boundary (positive outward, negative inward)",
           "parameters": {
             "location": "",
             "value": "",
@@ -47,7 +47,7 @@
           "validation": {
             "required_fields": ["location", "value.h", "value.Tinf"],
             "h_range": [0.0, 1.0e5],
-            "Tinf_range": [0.0, 2000.0],
+            "Tinf_range": [-273.15, 2000.0],
             "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
           }
         },
@@ -64,7 +64,7 @@
           "validation": {
             "required_fields": ["location", "value.epsilon", "value.Tinf"],
             "epsilon_range": [0.0, 1.0],
-            "Tinf_range": [0.0, 2000.0],
+            "Tinf_range": [-273.15, 2000.0],
             "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
           }
         },
@@ -92,7 +92,7 @@
           },
           "validation": {
             "required_fields": ["location", "value"],
-            "value_range": [0.0, 2000.0],
+            "value_range": [-273.15, 2000.0],
             "valid_locations": ["left", "right", "top", "bottom", "front", "back", "all"]
           }
         }

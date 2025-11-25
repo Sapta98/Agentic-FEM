@@ -13,6 +13,25 @@ try:
 except ImportError:
 	from context_based_parser import ContextBasedParser
 
+try:
+	from agents.specialized_agents import (
+		PhysicsAgent,
+		GeometryAgent,
+		MaterialAgent,
+		BoundaryConditionAgent,
+		DimensionAgent,
+		ParserAgent,
+	)
+except ImportError:
+	from agents.specialized_agents import (
+		PhysicsAgent,
+		GeometryAgent,
+		MaterialAgent,
+		BoundaryConditionAgent,
+		DimensionAgent,
+		ParserAgent,
+	)
+
 logger = logging.getLogger(__name__)
 
 class SimulationPromptParser:
@@ -37,11 +56,31 @@ class SimulationPromptParser:
 		# Load API key from environment
 		api_key = self._load_api_key()
 
-		# Initialize context-based parser
+		# Initialize context-based parser core
 		self.context_parser = ContextBasedParser(api_key, model)
+		prompt_manager = getattr(self.context_parser, "prompt_manager", None)
+		template_manager = getattr(self.context_parser, "template_manager", None)
 
-		logger.info(f"Prompt Analyzer initialized with model: {model}")
-		logger.info(f"Model configuration: OPENAI_MODEL={model}")
+		# Specialized agents used by parser agent
+		self.physics_agent = PhysicsAgent(prompt_manager=prompt_manager)
+		self.material_agent = MaterialAgent(prompt_manager=prompt_manager)
+		self.geometry_agent = GeometryAgent(prompt_manager=prompt_manager)
+		self.boundary_agent = BoundaryConditionAgent(prompt_manager=prompt_manager)
+		self.dimension_agent = DimensionAgent(prompt_manager=prompt_manager)
+
+		# Parser agent orchestrates specialized agents and updates context parser
+		self.parser_agent = ParserAgent(
+			context_parser=self.context_parser,
+			template_manager=template_manager,
+			physics_agent=self.physics_agent,
+			material_agent=self.material_agent,
+			geometry_agent=self.geometry_agent,
+			dimension_agent=self.dimension_agent,
+			boundary_agent=self.boundary_agent,
+		)
+
+		logger.debug(f"Prompt Analyzer initialized with model: {model}")
+		logger.debug(f"Model configuration: OPENAI_MODEL={model}")
 
 	def _load_env_variables(self):
 		"""Load environment variables from .env file"""
@@ -94,10 +133,53 @@ class SimulationPromptParser:
 			if context:
 				self.context_parser.context = context.copy()
 
-			result = self.context_parser.parse_prompt(prompt)
+			result = self.parser_agent.execute_task(
+				"parse_prompt",
+				{
+					"prompt": prompt,
+					"context": self.context_parser.get_context(),
+				},
+			)
 
+			# Get the latest context from the parser (should include all processed information)
+			latest_context = self.context_parser.get_context()
+			
+			# Log boundary conditions in latest context for debugging
+			if latest_context.get('boundary_conditions'):
+				bcs = latest_context.get('boundary_conditions', [])
+				logger.info(f"Latest context contains boundary_conditions: {len(bcs) if isinstance(bcs, list) else 'N/A'} BC(s)")
+				if isinstance(bcs, list):
+					for i, bc in enumerate(bcs):
+						logger.debug(f"  BC {i}: location={bc.get('location')}, type={bc.get('type')}, value={bc.get('value')}, source={bc.get('source')}")
+			else:
+				logger.warning(f"Latest context does NOT contain boundary_conditions!")
+				logger.debug(f"Latest context keys: {list(latest_context.keys())}")
+			
 			# Add context to result for interactive demo
-			result['updated_context'] = self.context_parser.get_context()
+			# If result already has 'context', merge it with latest_context to ensure all fields are included
+			if result.get('context'):
+				# Merge result.context with latest_context (latest_context takes precedence)
+				merged_context = {**result.get('context', {}), **latest_context}
+				result['updated_context'] = merged_context
+				logger.debug(f"Merged context from result.context and latest_context")
+			else:
+				result['updated_context'] = latest_context
+			
+			# Also ensure result.context is set if it's not already
+			if 'context' not in result:
+				result['context'] = latest_context
+			else:
+				# Update result.context with latest_context to ensure consistency
+				result['context'].update(latest_context)
+			
+			# Verify boundary conditions are in the final result
+			final_context = result.get('updated_context') or result.get('context') or {}
+			if final_context.get('boundary_conditions'):
+				bcs = final_context.get('boundary_conditions', [])
+				logger.info(f"Final result contains boundary_conditions: {len(bcs) if isinstance(bcs, list) else 'N/A'} BC(s)")
+			else:
+				logger.warning(f"Final result does NOT contain boundary_conditions!")
+				logger.debug(f"Final context keys: {list(final_context.keys())}")
 
 			return result
 
@@ -107,7 +189,8 @@ class SimulationPromptParser:
 
 	def clear_context(self):
 		"""Clear the simulation context"""
-		self.context_parser.clear_context()
+		self.parser_agent.execute_task("clear_context", {})
+
 
 	def get_parser_info(self) -> dict:
 		"""Get information about the parser"""

@@ -201,6 +201,43 @@ Examples:
 """
 
 	@staticmethod
+	def _extract_vector_from_text(text: str) -> Optional[list]:
+		"""
+		Extract vector values from text that might contain bracketed entries.
+		Looks for patterns like: "traction (1000, 2000, 0)", "force [1e6, 0, 0]", etc.
+		"""
+		import re
+		# Pattern to match vectors in brackets: (x,y,z), [x,y,z], {x,y,z}, or x,y,z
+		patterns = [
+			r'[\[\(\{]\s*([-\d\.eE\+\s,]+)\s*[\]\)\}]',  # Bracketed
+			r'(\d+\.?\d*)\s*,\s*(\d+\.?\d*)\s*(?:,\s*(\d+\.?\d*))?',  # Comma-separated
+		]
+		
+		for pattern in patterns:
+			matches = re.findall(pattern, text)
+			if matches:
+				# Take the first match
+				match = matches[0]
+				if isinstance(match, tuple):
+					# Extract numbers from tuple
+					parts = [m for m in match if m and m.strip()]
+					if len(parts) >= 2:
+						try:
+							return [float(p.strip()) for p in parts]
+						except (ValueError, TypeError):
+							continue
+				elif isinstance(match, str):
+					# Single string match
+					parts = [p.strip() for p in match.split(',') if p.strip()]
+					if len(parts) >= 2:
+						try:
+							return [float(p) for p in parts]
+						except (ValueError, TypeError):
+							continue
+		
+		return None
+	
+	@staticmethod
 	def _get_boundary_locations_prompt(prompt: str, geometry_type: str, available_boundaries: list) -> str:
 		"""Generate prompt for mapping vague boundary locations to specific boundaries"""
 		return f"""
@@ -267,12 +304,23 @@ For HEAT TRANSFER:
 - "convection", "cooling", "heating" → type: "convection", bc_type: "robin"
 
 For SOLID MECHANICS:
-- "fixed", "clamped", "cantilever", "built-in" → type: "fixed", bc_type: "dirichlet" (value: 0)
-- "free", "unconstrained", "unrestrained" → type: "free", bc_type: "neumann" (value: 0)
+- "fixed", "clamped", "cantilever", "built-in" → type: "fixed", bc_type: "dirichlet" (value: [0,0,0] or 0)
+- "free", "unconstrained", "unrestrained" → type: "free", bc_type: "neumann" (value: [0,0,0] or 0)
 - "force", "load" → type: "force", bc_type: "neumann"
 - "pressure" → type: "pressure", bc_type: "neumann"
 - "displacement", "deflection" → type: "displacement", bc_type: "dirichlet"
-- "symmetry", "symmetric" → type: "symmetry", bc_type: "neumann" (value: 0)
+- "symmetry", "symmetric" → type: "symmetry", bc_type: "neumann" (value: [0,0,0] or 0)
+
+VALUE FORMATS:
+- Scalar: single number (e.g., 1000, 1e6)
+- Vector: array [x, y, z] or list format (e.g., [1000, 2000, 0], (1000, 2000, 0), 1000, 2000, 0)
+- For traction/force/displacement: use vector format [tx, ty, tz] or [ux, uy, uz] when direction is specified
+- For pressure: use scalar (direction is automatic via normal vector)
+- Examples:
+  * "1000 N force in x-direction" → value: [1000, 0, 0]
+  * "force (1000, 2000, 0)" → value: [1000, 2000, 0]
+  * "traction [1e6, 0, 0]" → value: [1000000, 0, 0]
+  * "displacement 0.001 m in x" → value: [0.001, 0, 0]
 
 Respond with JSON:
 {{
@@ -280,7 +328,7 @@ Respond with JSON:
 		{{
 			"location": "specific boundary from the identified locations",
 			"type": "temperature/flux/convection/fixed/free/force/displacement/symmetry",
-			"value": "numerical value",
+			"value": "numerical value (scalar or array [x,y,z] for vectors)",
 			"bc_type": "dirichlet/neumann/robin",
 			"confidence": 0.0-1.0
 		}}
@@ -414,6 +462,7 @@ Respond with JSON:
 Examples:
 - "2m long, 0.1m wide" -> {{"dimensions": {{"length": 2.0, "width": 0.1}}, "units": {{"length": "m", "width": "m"}}, "confidence": 0.9, "reasoning": "Explicit dimensions provided"}}
 - "radius 5cm" -> {{"dimensions": {{"radius": 5.0}}, "units": {{"radius": "cm"}}, "confidence": 0.9, "reasoning": "Radius explicitly specified"}}
+- "diameter 60cm" -> {{"dimensions": {{"diameter": 60.0}}, "units": {{"diameter": "cm"}}, "confidence": 0.9, "reasoning": "Diameter explicitly specified"}}
 - "10mm thick" -> {{"dimensions": {{"height": 10.0}}, "units": {{"height": "mm"}}, "confidence": 0.8, "reasoning": "Thickness implies height dimension"}}
 """
 

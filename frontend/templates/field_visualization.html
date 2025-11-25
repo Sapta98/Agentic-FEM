@@ -71,6 +71,36 @@ body {
 	border-radius: 2px;
 }
 
+#time-controls .time-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 4px;
+}
+
+#time-controls .time-row:first-of-type {
+	margin-top: 0;
+}
+
+#time-slider {
+	flex: 1;
+}
+
+#time-display {
+	min-width: 90px;
+	font-weight: bold;
+	font-size: 11px;
+	color: #00ff00;
+}
+
+#playback-speed {
+	width: auto;
+}
+
+#loop-toggle {
+	margin-left: 4px;
+}
+
 .btn {
 	padding: 4px 8px;
 	margin: 2px;
@@ -191,7 +221,7 @@ body {
 <label>Field Display:</label>
 <select id="field-display-select" onchange="changeFieldDisplay(this.value)">
 <option value="none">None (Mesh Only)</option>
-<option value="field" selected>Field Visualization</option>
+<option value="field" selected>{field_display_name}</option>
 </select>
 </div>
 <div class="control-group">
@@ -209,12 +239,40 @@ body {
 <div class="control-group">
     <button id="fit-view" class="btn btn-secondary" style="width: 100%;" onclick="fitToView();">Fit to View</button>
 </div>
+<div class="control-group" id="time-controls" style="display: none;">
+<label>Time Controls:</label>
+<div class="time-row">
+	<button id="play-pause-btn" class="btn btn-secondary" onclick="togglePlayback()">Play</button>
+	<button id="step-backward-btn" class="btn btn-secondary" onclick="stepBackward()">Prev</button>
+	<button id="step-forward-btn" class="btn btn-secondary" onclick="stepForward()">Next</button>
+</div>
+<div class="time-row">
+	<input type="range" id="time-slider" min="0" max="0" value="0" step="1" onchange="onTimeSliderChange(this.value)" />
+</div>
+<div class="time-row">
+	<span id="time-display">t = 0.000</span>
+	<select id="playback-speed" onchange="updatePlaybackSpeed(this.value)">
+		<option value="0.25">0.25x</option>
+		<option value="0.5">0.5x</option>
+		<option value="1" selected>1x</option>
+		<option value="2">2x</option>
+		<option value="4">4x</option>
+	</select>
+	<label style="display: flex; align-items: center; gap: 4px; font-size: 10px;">
+		<input type="checkbox" id="loop-toggle" onchange="toggleLoop(this.checked)" />
+		Loop
+	</label>
+</div>
+<div class="time-row">
+	<button id="steady-state-btn" class="btn btn-primary" style="width: 100%;" onclick="showSteadyState()">Show Steady-State</button>
+</div>
+</div>
 </div>
 <div id="colorbar" style="display: none;">
 <div id="colorbar-gradient"></div>
 <div id="colorbar-labels">
-<span id="max-label">Max</span>
 <span id="min-label">Min</span>
+<span id="max-label">Max</span>
 </div>
 </div>
 <div id="vtk-container"></div>
@@ -230,11 +288,40 @@ const meshData = {mesh_data_js};
 
 const fieldData = {field_data_js};
 
+// Debug: Log mesh data to verify deformed coordinates
+console.log('Mesh data loaded:', {
+	vertices_count: meshData.vertices ? meshData.vertices.length : 0,
+	faces_count: meshData.faces ? meshData.faces.length : 0,
+	first_vertex: meshData.vertices ? meshData.vertices[0] : null,
+	physics_type: fieldData.physics_type || 'unknown'
+});
+
 const settings = {settings_js};
+
+const isTransient = fieldData.is_transient === true;
+const timeSeries = Array.isArray(fieldData.time_series)
+	? fieldData.time_series
+	: (Array.isArray(fieldData.solutions) ? fieldData.solutions : []);
+const rawTimeSteps = Array.isArray(fieldData.time_steps) ? fieldData.time_steps : [];
+const timeSteps = rawTimeSteps.length === timeSeries.length
+	? rawTimeSteps
+	: timeSeries.map((snapshot, index) => {
+		if (snapshot && typeof snapshot.time === 'number') {
+			return snapshot.time;
+		}
+		return index;
+	});
+// Initialize to first frame (t=0) for transient solutions, not the last frame
+let currentTimeIndex = 0;
+let isPlaying = false;
+let playbackInterval = null;
+let playbackSpeed = 1.0;
+let loopPlayback = false;
 
 // VTK.js setup
 let renderWindow, renderer, actor;
 let fieldMin, fieldMax, fieldMean;
+let globalFieldMin, globalFieldMax; // Global min/max for transient solutions (fixed colorbar range)
 let currentColormap = 'viridis';
 let meshDimension = 1; // Default to 1D, will be updated based on mesh data
 let currentViewMode = 'all'; // 'all', 'surface', 'volume'
@@ -258,6 +345,45 @@ function hideControlsFor1DMesh() {
 }
 
 function init() {
+	// Calculate global min/max from all available data (transient frames + steady-state)
+	// This ensures a fixed colorbar range for all frames (both transient and steady-state)
+	if (isTransient && Array.isArray(timeSeries) && timeSeries.length > 0) {
+		let minVal = Infinity;
+		let maxVal = -Infinity;
+		
+		// Find min/max across all transient frames
+		for (const snapshot of timeSeries) {
+			if (snapshot && Array.isArray(snapshot.values) && snapshot.values.length > 0) {
+				const frameMin = Math.min(...snapshot.values);
+				const frameMax = Math.max(...snapshot.values);
+				minVal = Math.min(minVal, frameMin);
+				maxVal = Math.max(maxVal, frameMax);
+			}
+		}
+		
+		// Also include steady-state solution if available
+		const timeStepping = fieldData.time_stepping || {};
+		const steadyState = timeStepping.steady_state_solution;
+		if (steadyState && Array.isArray(steadyState.values) && steadyState.values.length > 0) {
+			const ssMin = Math.min(...steadyState.values);
+			const ssMax = Math.max(...steadyState.values);
+			minVal = Math.min(minVal, ssMin);
+			maxVal = Math.max(maxVal, ssMax);
+		}
+		
+		// Set global range if we found valid values
+		if (isFinite(minVal) && isFinite(maxVal)) {
+			globalFieldMin = minVal;
+			globalFieldMax = maxVal;
+			console.log('Calculated global min/max from all frames (transient + steady-state):', globalFieldMin, globalFieldMax);
+		}
+		// Fallback: Use fieldData min/max if available
+		else if (typeof fieldData.min_value === 'number' && typeof fieldData.max_value === 'number') {
+			globalFieldMin = fieldData.min_value;
+			globalFieldMax = fieldData.max_value;
+			console.log('Using fieldData min/max as global range:', globalFieldMin, globalFieldMax);
+		}
+	}
 
 	// Calculate field statistics
 	calculateFieldStats();
@@ -296,11 +422,51 @@ function init() {
 	interactor.setInteractorStyle(vtk.Interaction.Style.vtkInteractorStyleTrackballCamera.newInstance());
 	
 
+	// For transient solutions, apply the first frame (t=0) before creating the field mesh
+	if (isTransient && Array.isArray(timeSeries) && timeSeries.length > 0) {
+		// Ensure we're at the first frame (t=0)
+		currentTimeIndex = 0;
+		const firstSnapshot = timeSeries[0];
+		if (firstSnapshot && Array.isArray(firstSnapshot.values)) {
+			// Apply the first frame's values
+			fieldData.values = firstSnapshot.values.slice();
+			
+			// Update field statistics from first snapshot
+			if (typeof firstSnapshot.min_value === 'number' && typeof firstSnapshot.max_value === 'number' && typeof firstSnapshot.mean_value === 'number') {
+				// Always use global min/max for colorbar (calculated from all frames)
+				if (typeof globalFieldMin === 'number' && typeof globalFieldMax === 'number') {
+					fieldMin = globalFieldMin;
+					fieldMax = globalFieldMax;
+				} else {
+					// Fallback if global range not set
+					fieldMin = firstSnapshot.min_value;
+					fieldMax = firstSnapshot.max_value;
+				}
+				fieldMean = firstSnapshot.mean_value;
+			} else {
+				calculateFieldStats(fieldData.values);
+				// Use global range for colorbar if available
+				if (typeof globalFieldMin === 'number' && typeof globalFieldMax === 'number') {
+					fieldMin = globalFieldMin;
+					fieldMax = globalFieldMax;
+				}
+			}
+		}
+	}
+
 	// Create field mesh
 	createFieldMesh('all');
 
 	// Setup controls
 	setupControls();
+	
+	// Ensure view controls are shown for 3D meshes (check after createFieldMesh sets meshDimension)
+	// This will be handled in createFieldMesh, but we also check here as backup
+	const viewControls = document.getElementById('view-controls');
+	if (viewControls && typeof meshDimension !== 'undefined' && meshDimension === 3) {
+		viewControls.style.display = 'flex';
+		updateViewButtonStates();
+	}
 
 	// Update info
 	updateInfo();
@@ -331,6 +497,17 @@ function createMeshOnly() {
 		meshDimension = 2; // Default to 2D
 	}
 	
+	// Show/hide view controls based on mesh dimension
+	const viewControls = document.getElementById('view-controls');
+	if (viewControls) {
+		if (meshDimension === 3) {
+			viewControls.style.display = 'flex';
+			updateViewButtonStates();
+		} else {
+			viewControls.style.display = 'none';
+		}
+	}
+	
 	// Clear existing actors from renderer
 	if (renderer) {
 		renderer.removeAllActors();
@@ -343,6 +520,8 @@ function createMeshOnly() {
 	const lineCellArray = vtk.Common.Core.vtkCellArray.newInstance();
 
 	// Set vertices
+	// For solid mechanics, meshData.vertices contains deformed coordinates (original + displacement)
+	// For other physics types, meshData.vertices contains original coordinates
 	const vertices = new Float32Array(meshData.vertices.flat());
 	points.setData(vertices, 3); 
 	polydata.setPoints(points);
@@ -351,9 +530,9 @@ function createMeshOnly() {
 	let processedElements = 0;
 	
 	// Process volume elements (tetrahedrons) - only if viewMode allows volume elements
-	if (meshData.cells && typeof meshData.cells === 'object' && (viewMode === 'all' || viewMode === 'volume')) {
+	if (meshData.cells && typeof meshData.cells === 'object' && (currentViewMode === 'all' || currentViewMode === 'volume')) {
     log('=== PROCESSING VOLUME ELEMENTS ===');
-    log('View mode:', viewMode);
+    log('View mode:', currentViewMode);
 		if (meshData.cells.tetrahedron && meshData.cells.tetrahedron.length > 0) {
 			for (let i = 0; i < meshData.cells.tetrahedron.length; i++) {
 				const tetra = meshData.cells.tetrahedron[i];
@@ -384,9 +563,9 @@ function createMeshOnly() {
 	}
 	
 	// Process surface elements (triangles) - only if viewMode allows surface elements
-	if (meshData.cells && typeof meshData.cells === 'object' && (viewMode === 'all' || viewMode === 'surface')) {
+	if (meshData.cells && typeof meshData.cells === 'object' && (currentViewMode === 'all' || currentViewMode === 'surface')) {
         log('=== PROCESSING SURFACE ELEMENTS FROM CELLS ===');
-        log('View mode:', viewMode);
+        log('View mode:', currentViewMode);
 		if (meshData.cells.triangle && meshData.cells.triangle.length > 0) {
 			for (let i = 0; i < meshData.cells.triangle.length; i++) {
 				const triangle = meshData.cells.triangle[i];
@@ -426,9 +605,9 @@ function createMeshOnly() {
 	}
 	
 	// Process faces from meshData.faces (for 2D meshes) - only if viewMode allows surface elements
-	if (meshData.faces && meshData.faces.length > 0 && (viewMode === 'all' || viewMode === 'surface')) {
+	if (meshData.faces && meshData.faces.length > 0 && (currentViewMode === 'all' || currentViewMode === 'surface')) {
 	log('=== PROCESSING FACES FROM MESHDATA.FACES ===');
-	log('View mode:', viewMode);
+	log('View mode:', currentViewMode);
 	log('Face cells length:', meshData.faces.length);
 	log('First few elements:', meshData.faces.slice(0, 3));
 		
@@ -496,9 +675,13 @@ function createMeshOnly() {
 	actor = vtk.Rendering.Core.vtkActor.newInstance();
 	actor.setMapper(mapper);
 
-	// Set actor properties based on mesh dimension
+	// Set actor properties based on mesh dimension and current representation
 	const actorProps = actor.getProperty();
 	actorProps.setOpacity(0.8);
+	
+	// Get current representation from dropdown
+	const representationSelect = document.getElementById('representation-select');
+	const currentRepresentation = representationSelect ? parseInt(representationSelect.value) : 2;
 	
 	if (meshDimension === 1) {
 		// 1D mesh - use thick lines
@@ -506,9 +689,23 @@ function createMeshOnly() {
 		actorProps.setLineWidth(15); // Very thick lines
 		actorProps.setRepresentation(1); // Wireframe
 	} else {
-		// 2D/3D mesh - use green surface
+		// 2D/3D mesh - use representation from dropdown
 		actorProps.setColor(0.0, 1.0, 0.0); // Green color for mesh
-		actorProps.setRepresentation(2); // Surface
+		actorProps.setRepresentation(currentRepresentation); // Use selected representation
+		
+		// Set additional properties based on representation
+		if (currentRepresentation === 0) {
+			// Points representation
+			actorProps.setPointSize(meshDimension === 2 ? 5 : 3);
+		} else if (currentRepresentation === 1) {
+			// Wireframe representation
+			actorProps.setLineWidth(2);
+			actorProps.setEdgeVisibility(true);
+		} else if (currentRepresentation === 2) {
+			// Surface representation
+			actorProps.setOpacity(0.8);
+			actorProps.setEdgeVisibility(true);
+		}
 	}
 
 	// Add to renderer
@@ -540,34 +737,402 @@ function changeFieldDisplay(displayType) {
 		renderer.removeAllActors();
 		log('Cleared all actors from renderer');
 	}
+
+	if (isTransient && displayType === 'none') {
+		stopPlayback();
+	}
 	
 	if (displayType === 'none') {
 		// Show mesh only
 		createMeshOnly();
 		// Hide field-related controls
-		document.getElementById('colormap-group').style.display = 'none';
+		const colormapGroup = document.getElementById('colormap-group');
+		if (colormapGroup) {
+			colormapGroup.style.display = 'none';
+		}
 		document.getElementById('colorbar').style.display = 'none';
 		document.getElementById('colorbar-labels').style.display = 'none';
 	} else {
 		// Show field visualization
 		createFieldMesh(currentViewMode);
 		// Show field-related controls
-		document.getElementById('colormap-group').style.display = 'block';
+		const colormapGroup = document.getElementById('colormap-group');
+		if (colormapGroup) {
+			colormapGroup.style.display = 'block';
+		}
 		document.getElementById('colorbar').style.display = 'block';
 		document.getElementById('colorbar-labels').style.display = 'block';
 	}
+	
+	// Update button states for view controls
+	updateViewButtonStates();
 	
 	// Render the changes
 	renderWindow.render();
 }
 
-function calculateFieldStats() {
-	const values = fieldData.values;
-	fieldMin = Math.min(...values);
-	fieldMax = Math.max(...values);
-	
-	// Field data loaded successfully
+function calculateFieldStats(valuesOverride = null) {
+	const values = Array.isArray(valuesOverride) ? valuesOverride : fieldData.values;
+	if (!values || values.length === 0) {
+		// Use global min/max if available (for both transient and steady-state)
+		if (typeof globalFieldMin === 'number' && typeof globalFieldMax === 'number') {
+			fieldMin = globalFieldMin;
+			fieldMax = globalFieldMax;
+		} else {
+			fieldMin = 0;
+			fieldMax = 0;
+		}
+		fieldMean = 0;
+		return;
+	}
+
+	// Always use global min/max if available (calculated from all frames)
+	// This ensures fixed colorbar range for both transient frames and steady-state
+	if (typeof globalFieldMin === 'number' && typeof globalFieldMax === 'number') {
+		fieldMin = globalFieldMin;
+		fieldMax = globalFieldMax;
+	} else {
+		// Calculate from current values (fallback if global range not set)
+		fieldMin = Math.min(...values);
+		fieldMax = Math.max(...values);
+		
+		// For transient solutions, store calculated range as global if not already set
+		if (isTransient && (typeof globalFieldMin !== 'number' || typeof globalFieldMax !== 'number')) {
+			globalFieldMin = fieldMin;
+			globalFieldMax = fieldMax;
+		}
+	}
 	fieldMean = values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function initializeTimeControls() {
+	const timeControls = document.getElementById('time-controls');
+	if (!isTransient || !timeControls) {
+		return;
+	}
+
+	if (!Array.isArray(timeSeries) || timeSeries.length === 0 || !Array.isArray(timeSeries[0].values)) {
+		console.warn('Transient mode enabled but no time-series data available.');
+		return;
+	}
+
+	timeControls.style.display = 'block';
+
+	const slider = document.getElementById('time-slider');
+	if (slider) {
+		slider.max = timeSeries.length - 1;
+	}
+	
+	// Show/hide steady-state button based on availability
+	const steadyStateBtn = document.getElementById('steady-state-btn');
+	if (steadyStateBtn) {
+		const timeStepping = fieldData.time_stepping || {};
+		const steadyState = timeStepping.steady_state_solution;
+		if (steadyState && Array.isArray(steadyState.values)) {
+			steadyStateBtn.style.display = 'block';
+		} else {
+			steadyStateBtn.style.display = 'none';
+		}
+	}
+
+	currentTimeIndex = Math.min(Math.max(0, currentTimeIndex), timeSeries.length - 1);
+
+		const snapshot = timeSeries[currentTimeIndex];
+		if (snapshot && Array.isArray(snapshot.values)) {
+			const needsUpdate =
+				!Array.isArray(fieldData.values) ||
+				fieldData.values.length !== snapshot.values.length;
+			if (needsUpdate) {
+				applyTimeStep(currentTimeIndex, { force: true, skipSlider: true });
+			} else {
+				if (typeof snapshot.min_value === 'number' && typeof snapshot.max_value === 'number' && typeof snapshot.mean_value === 'number') {
+					// Always use global min/max for colorbar (calculated from all frames)
+					// This ensures fixed colorbar range for both transient frames and steady-state
+					if (typeof globalFieldMin === 'number' && typeof globalFieldMax === 'number') {
+						fieldMin = globalFieldMin;
+						fieldMax = globalFieldMax;
+					} else {
+						// Fallback if global range not available
+						fieldMin = snapshot.min_value;
+						fieldMax = snapshot.max_value;
+					}
+					fieldMean = snapshot.mean_value;
+				} else {
+					calculateFieldStats(snapshot.values);
+				}
+				updateInfo();
+				updateTimeDisplay(currentTimeIndex, { skipSlider: true });
+			}
+		}
+
+	updatePlayButton();
+
+	const playButton = document.getElementById('play-pause-btn');
+	if (playButton && timeSeries.length <= 1) {
+		playButton.disabled = true;
+		playButton.classList.add('disabled');
+	}
+}
+
+function applyTimeStep(index, options = {}) {
+	if (!isTransient || !Array.isArray(timeSeries) || timeSeries.length === 0) {
+		return false;
+	}
+
+	let targetIndex = Number(index);
+	if (!Number.isFinite(targetIndex)) {
+		targetIndex = 0;
+	}
+
+	targetIndex = Math.max(0, Math.min(timeSeries.length - 1, targetIndex));
+
+	if (!options.force && targetIndex === currentTimeIndex) {
+		updateTimeDisplay(targetIndex, { skipSlider: options.skipSlider });
+		return true;
+	}
+
+	const snapshot = timeSeries[targetIndex];
+	if (!snapshot || !Array.isArray(snapshot.values)) {
+		console.warn('Missing time-step snapshot values for index', targetIndex);
+		return false;
+	}
+
+	currentTimeIndex = targetIndex;
+	fieldData.values = snapshot.values.slice();
+
+	if (typeof snapshot.min_value === 'number' && typeof snapshot.max_value === 'number' && typeof snapshot.mean_value === 'number') {
+		// Always use global min/max for colorbar (calculated from all frames)
+		// This ensures fixed colorbar range for both transient frames and steady-state
+		if (typeof globalFieldMin === 'number' && typeof globalFieldMax === 'number') {
+			fieldMin = globalFieldMin;
+			fieldMax = globalFieldMax;
+		} else {
+			// Fallback if global range not available
+			fieldMin = snapshot.min_value;
+			fieldMax = snapshot.max_value;
+		}
+		fieldMean = snapshot.mean_value;
+	} else {
+		calculateFieldStats(fieldData.values);
+	}
+
+	updateInfo();
+	createFieldMesh(currentViewMode);
+	updateTimeDisplay(targetIndex, { skipSlider: options.skipSlider });
+
+	return true;
+}
+
+function updateTimeDisplay(index, options = {}) {
+	const slider = document.getElementById('time-slider');
+	if (slider && !options.skipSlider) {
+		slider.value = index;
+	}
+
+	const timeLabel = document.getElementById('time-display');
+	if (timeLabel) {
+		const timeValue = timeSteps[index] !== undefined ? timeSteps[index] :
+			(timeSeries[index] && typeof timeSeries[index].time === 'number' ? timeSeries[index].time : index);
+		const numericTime = Number(timeValue);
+		const formatted = Number.isFinite(numericTime) ? numericTime.toFixed(3) : String(timeValue);
+		timeLabel.textContent = `t = ${formatted} s`;
+	}
+}
+
+function updatePlayButton() {
+	const playButton = document.getElementById('play-pause-btn');
+	if (!playButton) {
+		return;
+	}
+	playButton.textContent = isPlaying ? 'Pause' : 'Play';
+}
+
+function startPlayback() {
+	if (!isTransient || isPlaying || !Array.isArray(timeSeries) || timeSeries.length <= 1) {
+		return;
+	}
+
+	isPlaying = true;
+	updatePlayButton();
+
+	const baseIntervalMs = 100;  // Reduced from 1000ms to 100ms for faster playback
+	const intervalMs = Math.max(20, baseIntervalMs / playbackSpeed);  // Minimum 20ms instead of 50ms
+
+	playbackInterval = setInterval(() => {
+		const advanced = stepForward({ fromPlayback: true });
+		if (!advanced) {
+			if (loopPlayback) {
+				applyTimeStep(0, { force: true });
+			} else {
+				stopPlayback();
+			}
+		}
+	}, intervalMs);
+}
+
+function stopPlayback() {
+	if (playbackInterval) {
+		clearInterval(playbackInterval);
+		playbackInterval = null;
+	}
+	if (isPlaying) {
+		isPlaying = false;
+		updatePlayButton();
+	}
+}
+
+function togglePlayback() {
+	if (isPlaying) {
+		stopPlayback();
+	} else {
+		startPlayback();
+	}
+}
+
+function onTimeSliderChange(value) {
+	stopPlayback();
+	applyTimeStep(parseInt(value, 10));
+}
+
+function updatePlaybackSpeed(value) {
+	const parsed = parseFloat(value);
+	if (!Number.isFinite(parsed) || parsed <= 0) {
+		return;
+	}
+	playbackSpeed = parsed;
+	if (isPlaying) {
+		stopPlayback();
+		startPlayback();
+	}
+}
+
+function toggleLoop(checked) {
+	loopPlayback = !!checked;
+}
+
+function stepForward(options = {}) {
+	if (!isTransient || !Array.isArray(timeSeries) || timeSeries.length === 0) {
+		return false;
+	}
+
+	if (!options.fromPlayback) {
+		stopPlayback();
+	}
+
+	let nextIndex = currentTimeIndex + 1;
+	if (nextIndex >= timeSeries.length) {
+		if (loopPlayback || options.wrap) {
+			nextIndex = 0;
+		} else {
+			return false;
+		}
+	}
+
+	return applyTimeStep(nextIndex);
+}
+
+function stepBackward() {
+	if (!isTransient || !Array.isArray(timeSeries) || timeSeries.length === 0) {
+		return false;
+	}
+
+	stopPlayback();
+
+	let prevIndex = currentTimeIndex - 1;
+	if (prevIndex < 0) {
+		prevIndex = loopPlayback ? timeSeries.length - 1 : 0;
+	}
+
+	return applyTimeStep(prevIndex);
+}
+
+function showSteadyState() {
+	// Get steady-state solution from time_stepping data
+	const timeStepping = fieldData.time_stepping || {};
+	const steadyState = timeStepping.steady_state_solution;
+	
+	if (!steadyState || !Array.isArray(steadyState.values)) {
+		console.warn('Steady-state solution not available');
+		alert('Steady-state solution not available. It may not have been computed or the simulation may not have converged.');
+		return;
+	}
+	
+	// Apply steady-state solution to field data
+	fieldData.values = steadyState.values.slice();
+	
+	// Update field statistics
+	// Always use global min/max for colorbar (calculated from all frames)
+	if (typeof globalFieldMin === 'number' && typeof globalFieldMax === 'number') {
+		fieldMin = globalFieldMin;
+		fieldMax = globalFieldMax;
+		if (typeof steadyState.mean_value === 'number') {
+			fieldMean = steadyState.mean_value;
+		} else {
+			calculateFieldStats(fieldData.values);
+			// Re-apply global range after calculating (mean might have changed)
+			if (typeof globalFieldMin === 'number' && typeof globalFieldMax === 'number') {
+				fieldMin = globalFieldMin;
+				fieldMax = globalFieldMax;
+			}
+		}
+	} else {
+		// Fallback: use steady-state min/max if global not available
+		if (typeof steadyState.min_value === 'number' && typeof steadyState.max_value === 'number' && typeof steadyState.mean_value === 'number') {
+			fieldMin = steadyState.min_value;
+			fieldMax = steadyState.max_value;
+			fieldMean = steadyState.mean_value;
+		} else {
+			calculateFieldStats(fieldData.values);
+		}
+	}
+	
+	// Update display
+	updateInfo();
+	createFieldMesh(currentViewMode);
+	
+	// Update time display to show "Steady-State"
+	const timeDisplay = document.getElementById('time-display');
+	if (timeDisplay) {
+		timeDisplay.textContent = 't = ∞ (Steady-State)';
+	}
+	
+	// Disable time slider and controls while showing steady-state
+	const slider = document.getElementById('time-slider');
+	if (slider) {
+		slider.disabled = true;
+	}
+	
+	// Update button text
+	const btn = document.getElementById('steady-state-btn');
+	if (btn) {
+		btn.textContent = 'Show Transient';
+		btn.onclick = showTransient;
+	}
+	
+	console.log('Displaying steady-state solution');
+}
+
+function showTransient() {
+	// Restore transient view
+	if (!isTransient || !Array.isArray(timeSeries) || timeSeries.length === 0) {
+		return;
+	}
+	
+	// Re-enable time slider
+	const slider = document.getElementById('time-slider');
+	if (slider) {
+		slider.disabled = false;
+	}
+	
+	// Restore current time step
+	applyTimeStep(currentTimeIndex, { force: true });
+	
+	// Update button text
+	const btn = document.getElementById('steady-state-btn');
+	if (btn) {
+		btn.textContent = 'Show Steady-State';
+		btn.onclick = showSteadyState;
+	}
 }
 
 function createFieldMesh(viewMode = 'all', representation = null) {
@@ -578,25 +1143,32 @@ function createFieldMesh(viewMode = 'all', representation = null) {
 	// Processing mesh data
 
 	// Determine mesh dimension based on data
-	if (meshData.faces && meshData.faces.length > 0) {
-		meshDimension = 3; // 3D mesh
-	} else if (meshData.cells && typeof meshData.cells === 'object' && Object.keys(meshData.cells).length > 0) {
-		// Check if we have line elements (1D mesh)
-		if (meshData.cells.line_2nd || meshData.cells.line) {
+	// Check for 3D volume elements first (tetrahedrons)
+	if (meshData.cells && typeof meshData.cells === 'object') {
+		if (meshData.cells.tetrahedron || meshData.cells.tetrahedron_2nd) {
+			meshDimension = 3; // 3D mesh with volume elements
+		} else if (meshData.cells.line_2nd || meshData.cells.line) {
 			meshDimension = 1; // 1D mesh
-		} else {
+		} else if (meshData.cells.triangle || meshData.cells.triangle_2nd || meshData.cells.quad) {
 			meshDimension = 2; // 2D mesh
 		}
-	} else {
+	}
+	// Also check for faces (surface elements) - indicates 3D mesh
+	if (meshData.faces && meshData.faces.length > 0) {
+		meshDimension = 3; // 3D mesh (has surface faces)
+	}
+	// Default fallback
+	if (typeof meshDimension === 'undefined') {
 		meshDimension = 2; // Default to 2D
 	}
-	// Determine mesh dimension
 	
 	// Show/hide view controls based on mesh dimension
 	const viewControls = document.getElementById('view-controls');
 	if (viewControls) {
 		if (meshDimension === 3) {
-			viewControls.style.display = 'block';
+			viewControls.style.display = 'flex'; // Use flex to show buttons side by side
+			// Update button states when controls are shown
+			updateViewButtonStates();
 		} else {
 			viewControls.style.display = 'none';
 		}
@@ -619,11 +1191,27 @@ function createFieldMesh(viewMode = 'all', representation = null) {
 	const lineCellArray = vtk.Common.Core.vtkCellArray.newInstance();
 
 	// Set vertices
+	// For solid mechanics, meshData.vertices contains deformed coordinates (original + displacement)
+	// For other physics types, meshData.vertices contains original coordinates
 	const vertices = new Float32Array(meshData.vertices.flat());
+	
+	// Debug: Log vertex data for solid mechanics
+	if (fieldData.physics_type === 'solid_mechanics') {
+		console.log('Solid mechanics visualization - using vertices:', {
+			vertex_count: vertices.length / 3,
+			first_vertex: [vertices[0], vertices[1], vertices[2]],
+			vertex_range: {
+				x: [Math.min(...Array.from(vertices.filter((_, i) => i % 3 === 0))), Math.max(...Array.from(vertices.filter((_, i) => i % 3 === 0)))],
+				y: [Math.min(...Array.from(vertices.filter((_, i) => i % 3 === 1))), Math.max(...Array.from(vertices.filter((_, i) => i % 3 === 1)))],
+				z: [Math.min(...Array.from(vertices.filter((_, i) => i % 3 === 2))), Math.max(...Array.from(vertices.filter((_, i) => i % 3 === 2)))]
+			}
+		});
+	}
+	
 	points.setData(vertices, 3); 
 	polydata.setPoints(points);
 	
-
+	
 
 	// Set mesh connectivity - filter elements based on viewMode
 	let processedElements = 0;
@@ -940,7 +1528,12 @@ function createFieldMesh(viewMode = 'all', representation = null) {
 	mapper.setScalarModeToUsePointData();
 	mapper.setColorModeToMapScalars();
 	mapper.setColorByArrayName('values');
-	mapper.setScalarRange(fieldMin, fieldMax);
+	
+	// Ensure fieldMin < fieldMax for correct color mapping
+	const actualMin = Math.min(fieldMin, fieldMax);
+	const actualMax = Math.max(fieldMin, fieldMax);
+	
+	mapper.setScalarRange(actualMin, actualMax);
 	
 	// Force scalar visibility - this is critical for coloring
 	mapper.setScalarVisibility(true);
@@ -982,53 +1575,55 @@ function createFieldMesh(viewMode = 'all', representation = null) {
 	lut = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
 	
 	if (lutData && lutData.colors && lutData.colors.length > 0) {
+		// CRITICAL: Use actualMin/actualMax (from field values) for mapping range, not lutData.range
+		// This ensures the lookup table range matches the mapper's scalar range exactly
+		// lutData.range might be from backend calculation and could be inverted or different
+		const lutMin = actualMin; // Use actualMin from field values (ensures correct order)
+		const lutMax = actualMax; // Use actualMax from field values (ensures correct order)
 		
-		// Set the mapping range
-		lut.setMappingRange(lutData.range[0], lutData.range[1]);
+		// Verify range is valid
+		if (lutMin >= lutMax) {
+			log('WARNING: Invalid range for lookup table, using fieldMin/fieldMax instead');
+			const lutMin_fallback = Math.min(fieldMin, fieldMax);
+			const lutMax_fallback = Math.max(fieldMin, fieldMax);
+			lut.setMappingRange(lutMin_fallback, lutMax_fallback);
+		} else {
+			// Set the mapping range to match mapper's scalar range
+		lut.setMappingRange(lutMin, lutMax);
+		}
 		
 		// Add color points to the transfer function
-		// ColorTransferFunction expects normalized values [0,1] and RGB colors
-		const range = lutData.range[1] - lutData.range[0];
+		// Standard colormap: first color maps to minimum, last color to maximum
+		const range = lutMax - lutMin;
+		if (range > 0) {
 		for (let i = 0; i < lutData.colors.length; i++) {
-			const color = lutData.colors[i];
-			// Normalize the scalar value to [0,1] range
-			const normalizedValue = range > 0 ? (lutData.range[0] + (i / (lutData.colors.length - 1)) * range) : lutData.range[0];
-			// Add RGB color point (alpha is ignored in ColorTransferFunction)
-			lut.addRGBPoint(normalizedValue, color[0], color[1], color[2]);
+				const color = lutData.colors[i]; // Use color in original order
+				const scalarValue = lutMin + (i / (lutData.colors.length - 1)) * range;
+			lut.addRGBPoint(scalarValue, color[0], color[1], color[2]);
+			}
+		} else {
+			log('WARNING: Zero range for lookup table, using single color');
+			const color = lutData.colors[0];
+			lut.addRGBPoint(lutMin, color[0], color[1], color[2]);
 		}
-		
 	} else {
 		// Create a default viridis-like gradient
-		lut.setMappingRange(fieldMin, fieldMax);
+		// Standard colormap: Purple for minimum, Yellow for maximum
+		lut.setMappingRange(actualMin, actualMax);
 		
-		// Add some default color points for a viridis-like gradient
-		const range = fieldMax - fieldMin;
+		const range = actualMax - actualMin;
 		if (range > 0) {
-			lut.addRGBPoint(fieldMin, 0.267, 0.004, 0.329); // Dark purple
-			lut.addRGBPoint(fieldMin + range * 0.25, 0.282, 0.140, 0.457); // Purple-blue
-			lut.addRGBPoint(fieldMin + range * 0.5, 0.253, 0.265, 0.529); // Blue
-			lut.addRGBPoint(fieldMin + range * 0.75, 0.206, 0.371, 0.406); // Blue-green
-			lut.addRGBPoint(fieldMax, 0.993, 0.906, 0.144); // Yellow
+			// Standard viridis colormap order
+			lut.addRGBPoint(actualMin, 0.267, 0.004, 0.329); // Dark purple (low values)
+			lut.addRGBPoint(actualMin + range * 0.25, 0.282, 0.140, 0.457); // Purple-blue
+			lut.addRGBPoint(actualMin + range * 0.5, 0.253, 0.265, 0.529); // Blue
+			lut.addRGBPoint(actualMin + range * 0.75, 0.206, 0.371, 0.406); // Blue-green
+			lut.addRGBPoint(actualMax, 0.993, 0.906, 0.144); // Yellow (high values)
 		}
-		
-	log('ColorTransferFunction configured with default gradient');
 	}
 	
 	// Set the lookup table on the mapper
 	mapper.setLookupTable(lut);
-	
-	// Debug scalar field data
-	log('=== SCALAR FIELD DEBUG ===');
-	log('Field values:', fieldData.values);
-	log('Field min:', fieldMin, 'Field max:', fieldMax);
-	log('Scalar range set to:', fieldMin, 'to', fieldMax);
-	log('Scalar visibility:', mapper.getScalarVisibility());
-	log('Scalar mode:', mapper.getScalarMode());
-	log('Number of scalars:', polydata.getPointData().getScalars() ? polydata.getPointData().getScalars().getNumberOfTuples() : 'No scalars');
-	log('Lookup table created with VTK.js LookupTable');
-	log('Current colormap:', currentColormap);
-	log('Lookup table range:', lut.getRange());
-	log('Lookup table size:', lut.getSize ? lut.getSize() : 'getSize not available');
 
 	actor = vtk.Rendering.Core.vtkActor.newInstance();
 	actor.setMapper(mapper);
@@ -1138,6 +1733,7 @@ function setupControls() {
 	// Opacity change
 
 	// Range selection removed - no longer needed
+	initializeTimeControls();
 }
 
 function updateInfo() {
@@ -1240,20 +1836,84 @@ function fitToView() {
 }
 
 // Change representation function (like mesh visualization)
+function updateViewButtonStates() {
+	const surfaceButton = document.getElementById('surfaceViewBtn');
+	const volumeButton = document.getElementById('volumeViewBtn');
+	
+	if (surfaceButton && volumeButton) {
+		// Reset both buttons to default state
+		surfaceButton.style.backgroundColor = '#001100';
+		surfaceButton.style.color = '#00ff00';
+		surfaceButton.style.border = '1px solid #00ff00';
+		volumeButton.style.backgroundColor = '#001100';
+		volumeButton.style.color = '#00ff00';
+		volumeButton.style.border = '1px solid #00ff00';
+		
+		// Highlight active button based on current view mode
+		if (currentViewMode === 'surface') {
+			surfaceButton.style.backgroundColor = '#003300';
+			surfaceButton.style.border = '2px solid #00ff00';
+		} else if (currentViewMode === 'volume') {
+			volumeButton.style.backgroundColor = '#003300';
+			volumeButton.style.border = '2px solid #00ff00';
+		}
+	}
+}
+
 function showSurfaceView() {
 	currentViewMode = 'surface';
-	createFieldMesh('surface');
+	updateViewButtonStates();
+	
+	// Get current representation
+	const representationSelect = document.getElementById('representation-select');
+	const currentRepresentation = representationSelect ? parseInt(representationSelect.value) : 2;
+	
+	// Check if field display is "none"
+	const fieldDisplaySelect = document.getElementById('field-display-select');
+	const displayType = fieldDisplaySelect ? fieldDisplaySelect.value : 'field';
+	
+	if (displayType === 'none') {
+		// For mesh-only view, recreate mesh with surface elements
+		createMeshOnly();
+	} else {
+		// For field visualization, recreate with surface view
+		createFieldMesh('surface', currentRepresentation);
+	}
+	
+	renderWindow.render();
 }
 
 function showVolumeView() {
 	currentViewMode = 'volume';
-	createFieldMesh('volume');
+	updateViewButtonStates();
+	
+	// Get current representation
+	const representationSelect = document.getElementById('representation-select');
+	const currentRepresentation = representationSelect ? parseInt(representationSelect.value) : 2;
+	
+	// Check if field display is "none"
+	const fieldDisplaySelect = document.getElementById('field-display-select');
+	const displayType = fieldDisplaySelect ? fieldDisplaySelect.value : 'field';
+	
+	if (displayType === 'none') {
+		// For mesh-only view, recreate mesh with volume elements
+		createMeshOnly();
+	} else {
+		// For field visualization, recreate with volume view
+		createFieldMesh('volume', currentRepresentation);
+	}
+	
+	renderWindow.render();
 }
 
 
 function changeRepresentation(value) {
 	
 	const repValue = parseInt(value);
+	
+	// Check if field display is "none"
+	const fieldDisplaySelect = document.getElementById('field-display-select');
+	const displayType = fieldDisplaySelect ? fieldDisplaySelect.value : 'field';
 	
 	if (meshDimension === 1) {
 		// For 1D meshes, handle points and wireframe representations only
@@ -1266,7 +1926,11 @@ function changeRepresentation(value) {
 				actorProps.setLineWidth(1); // Reset line width
 			} else if (repValue === 1) {
 				// Wireframe representation - recreate mesh with proper line connectivity
-				createFieldMesh(currentViewMode, 1);
+				if (displayType === 'none') {
+					createMeshOnly();
+				} else {
+					createFieldMesh(currentViewMode, 1);
+				}
 			}
 			
 			// Force render
@@ -1285,7 +1949,11 @@ function changeRepresentation(value) {
 				actorProps.setEdgeVisibility(false);
 			} else if (repValue === 1) {
 				// Wireframe representation - recreate mesh to preserve view mode
-				createFieldMesh(currentViewMode, 1);
+				if (displayType === 'none') {
+					createMeshOnly();
+				} else {
+					createFieldMesh(currentViewMode, 1);
+				}
 			} else if (repValue === 2) {
 				// Surface representation
 				actorProps.setRepresentation(2); // Surface
@@ -1310,7 +1978,11 @@ function changeRepresentation(value) {
 			} else if (repValue === 1) {
 				// Wireframe representation - recreate mesh to preserve view mode
 				log('Recreating 3D mesh with wireframe representation...');
-				createFieldMesh(currentViewMode, 1);
+				if (displayType === 'none') {
+					createMeshOnly();
+				} else {
+					createFieldMesh(currentViewMode, 1);
+				}
 			} else if (repValue === 2) {
 				// Surface representation
 				actorProps.setRepresentation(2); // Surface

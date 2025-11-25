@@ -15,12 +15,13 @@ logger = logging.getLogger(__name__)
 class TemplateManager:
 	"""Manages simulation templates for different physics types"""
 
-	def __init__(self, templates_dir: Optional[Path] = None):
+	def __init__(self, templates_dir: Optional[Path] = None, lazy_load: bool = True):
 		"""
 		Initialize template manager
 
 		Args:
 			templates_dir: Directory containing template files
+			lazy_load: If True, only load templates when requested (default: True)
 		"""
 		if templates_dir is None:
 			# Default to templates directory relative to this file
@@ -28,27 +29,47 @@ class TemplateManager:
 
 		self.templates_dir = templates_dir
 		self._templates_cache = {}
-		self._load_templates()
+		self._lazy_load = lazy_load
+		self._template_files = {
+			"heat_transfer": "heat_transfer_template.json",
+			"solid_mechanics": "solid_mechanics_template.json"
+		}
+		
+		if not lazy_load:
+			self._load_all_templates()
 
-	def _load_templates(self):
-		"""Load all available templates"""
+	def _load_template(self, physics_type: str) -> bool:
+		"""Load a specific template if not already loaded"""
+		if physics_type in self._templates_cache:
+			return True
+		
 		try:
-			template_files = {
-				"heat_transfer": "heat_transfer_template.json",
-				"solid_mechanics": "solid_mechanics_template.json"
-			}
-
-			for physics_type, filename in template_files.items():
-				template_path = self.templates_dir / filename
-				if template_path.exists():
-					with open(template_path, 'r') as f:
-						self._templates_cache[physics_type] = json.load(f)
-						logger.info(f"Loaded template for {physics_type}")
-				else:
-					logger.warning(f"Template file not found: {template_path}")
-
+			filename = self._template_files.get(physics_type)
+			if not filename:
+				return False
+			
+			template_path = self.templates_dir / filename
+			if template_path.exists():
+				with open(template_path, 'r') as f:
+					self._templates_cache[physics_type] = json.load(f)
+				logger.debug(f"Loaded template: {physics_type}")
+				return True
+			else:
+				logger.warning(f"Template file not found: {template_path}")
+				return False
 		except Exception as e:
-			logger.error(f"Error loading templates: {e}")
+			logger.error(f"Error loading template {physics_type}: {e}")
+			return False
+
+	def _load_all_templates(self):
+		"""Load all available templates (used when lazy_load=False)"""
+		loaded_count = 0
+		for physics_type in self._template_files.keys():
+			if self._load_template(physics_type):
+				loaded_count += 1
+		
+		if loaded_count > 0:
+			logger.debug(f"Loaded {loaded_count} template(s)")
 
 	def get_template(self, physics_type: str) -> Optional[Dict[str, Any]]:
 		"""
@@ -60,6 +81,9 @@ class TemplateManager:
 		Returns:
 			Template dictionary or None if not found
 		"""
+		# Lazy load template if not already loaded
+		if physics_type not in self._templates_cache:
+			self._load_template(physics_type)
 		return self._templates_cache.get(physics_type)
 
 	def get_boundary_condition_options(self, physics_type: str) -> List[Dict[str, Any]]:
@@ -170,9 +194,8 @@ class TemplateManager:
 
 		# Update material properties if provided
 		if "material_properties" in context:
-			logger.info(f"Template manager updating material properties: {context['material_properties']}")
+			logger.debug(f"Updating material properties for {physics_type}")
 			config["pde_config"]["material_properties"].update(context["material_properties"])
-			logger.info(f"Template manager final material properties: {config['pde_config']['material_properties']}")
 
 		return config
 
@@ -324,7 +347,7 @@ class TemplateManager:
 			with open(template_path, 'w') as f:
 				json.dump(self._templates_cache[physics_type], f, indent=2)
 
-			logger.info(f"Updated template for {physics_type}")
+			logger.debug(f"Updated template for {physics_type}")
 			return True
 
 		except Exception as e:
@@ -335,8 +358,8 @@ class TemplateManager:
 		"""Reload all templates from files"""
 		try:
 			self._templates_cache.clear()
-			self._load_templates()
-			logger.info("Templates reloaded successfully")
+			self._load_all_templates()
+			logger.debug("Templates reloaded successfully")
 			return True
 		except Exception as e:
 			logger.error(f"Error reloading templates: {e}")

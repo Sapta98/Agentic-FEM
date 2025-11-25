@@ -38,21 +38,16 @@ class TerminalInterface:
 
 	def update_api_endpoints(self, base_url: str = "http://localhost:8080") -> None:
 		"""
-		Update API endpoints in the HTML template
-
+		DEPRECATED: This method is no longer used.
+		API endpoints are now dynamically constructed in JavaScript using window.location.origin.
+		This ensures URLs work correctly on any host (localhost, AWS IP, custom domain).
+		
 		Args:
-		base_url: Base URL for API endpoints
+		base_url: Base URL for API endpoints (ignored - kept for backward compatibility)
 		"""
-		replacements = {
-			'/simulation/parse': f'{base_url}/simulation/parse',
-			'/simulation/solve': f'{base_url}/simulation/solve',
-			'/mesh/preview': f'{base_url}/mesh/preview',
-			'/generate-mesh-preview': f'{base_url}/generate-mesh-preview',
-			'/solve-pde': f'{base_url}/solve-pde'
-		}
-
-		for old_endpoint, new_endpoint in replacements.items():
-			self.html_content = self.html_content.replace(old_endpoint, new_endpoint)
+		# Method intentionally left empty - endpoints are now handled dynamically in JavaScript
+		# All fetch() calls in terminal_frontend.html use window.location.origin + endpoint
+		pass
 
 	def customize_theme(self, theme_config: Dict[str, str]) -> None:
 		"""

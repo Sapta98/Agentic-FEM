@@ -235,18 +235,59 @@ class MeshConfig:
 			result['errors'].append(f"Unsupported geometry type: {geometry_type}")
 			return result
 
-		# Check required dimensions
+		# Check required dimensions (convert strings to numbers first)
 		required_dims = self.get_required_dimensions(geometry_type)
-		missing_dims = [dim for dim in required_dims if dim not in dimensions or dimensions[dim] <= 0]
+		missing_dims = []
+		for dim in required_dims:
+			if dim not in dimensions:
+				missing_dims.append(dim)
+			else:
+				value = dimensions[dim]
+				# Convert string to number if needed
+				try:
+					if isinstance(value, str):
+						value = float(value.strip()) if value.strip() else None
+					elif not isinstance(value, (int, float)):
+						value = float(value) if value is not None else None
+					
+					if value is None:
+						missing_dims.append(dim)
+					elif value <= 0:
+						missing_dims.append(dim)
+					# Update the dimensions dict with converted value
+					dimensions[dim] = value
+				except (ValueError, TypeError):
+					# If conversion fails, treat as missing
+					missing_dims.append(dim)
 
 		if missing_dims:
 			result['valid'] = False
 			result['errors'].append(f"Missing or invalid dimensions for {geometry_type}: {missing_dims}")
 
-		# Check dimension values
-		for dim_name, value in dimensions.items():
-			if value <= 0:
-				result['warnings'].append(f"Dimension {dim_name} should be positive, got {value}")
+		# Check dimension values (ensure they're numbers, not strings)
+		# Convert all dimensions to numbers and update the dict in place
+		for dim_name, value in list(dimensions.items()):
+			if value is None:
+				result['warnings'].append(f"Dimension {dim_name} is None")
+			else:
+				# Convert string values to float if needed
+				try:
+					original_value = value
+					if isinstance(value, str):
+						value = float(value.strip()) if value.strip() else None
+					elif not isinstance(value, (int, float)):
+						value = float(value)
+					
+					# Update the dimensions dict with converted value
+					if value is not None:
+						dimensions[dim_name] = value
+					
+					if value is None:
+						result['warnings'].append(f"Dimension {dim_name} is None or empty")
+					elif value <= 0:
+						result['warnings'].append(f"Dimension {dim_name} should be positive, got {value}")
+				except (ValueError, TypeError) as e:
+					result['warnings'].append(f"Dimension {dim_name} has invalid value '{original_value}' (type: {type(original_value).__name__}): {e}")
 
 		return result
 

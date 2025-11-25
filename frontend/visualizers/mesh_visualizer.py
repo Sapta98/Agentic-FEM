@@ -235,7 +235,7 @@ class MeshVisualizer:
 		new_settings: New settings to apply
 		"""
 		self.settings.update(new_settings)
-		logger.info(f"Updated mesh visualizer settings: {new_settings}")
+		logger.debug(f"Updated mesh visualizer settings: {new_settings}")
 
 	def cleanup_old_visualizations(self, max_age_hours: int = 24) -> int:
 		"""

@@ -13,6 +13,28 @@
         "dimension_descriptions": {
           "length": "Length of the line segment"
         }
+      },
+      "rod": {
+        "description": "1D rod/bar structure",
+        "required_dimensions": ["length"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the rod"
+        }
+      },
+      "bar": {
+        "description": "1D bar structure",
+        "required_dimensions": ["length"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Length of the bar"
+        }
       }
     },
     "2D": {
@@ -66,6 +88,17 @@
         "dimension_descriptions": {
           "length": "Length of the rectangle",
           "width": "Width of the rectangle"
+        }
+      },
+      "square": {
+        "description": "2D square region",
+        "required_dimensions": ["length"],
+        "optional_dimensions": [],
+        "dimension_units": {
+          "length": ["m", "mm", "cm", "ft", "in"]
+        },
+        "dimension_descriptions": {
+          "length": "Side length of the square"
         }
       }
     },
@@ -134,36 +167,6 @@
         "dimension_descriptions": {
           "radius": "Radius of the sphere"
         }
-      },
-      "solid": {
-        "description": "3D solid/rectangular body",
-        "required_dimensions": ["length", "width", "height"],
-        "optional_dimensions": [],
-        "dimension_units": {
-          "length": ["m", "mm", "cm", "ft", "in"],
-          "width": ["m", "mm", "cm", "ft", "in"],
-          "height": ["m", "mm", "cm", "ft", "in"]
-        },
-        "dimension_descriptions": {
-          "length": "Length of the solid",
-          "width": "Width of the solid",
-          "height": "Height of the solid"
-        }
-      },
-      "rectangular": {
-        "description": "3D rectangular solid",
-        "required_dimensions": ["length", "width", "height"],
-        "optional_dimensions": [],
-        "dimension_units": {
-          "length": ["m", "mm", "cm", "ft", "in"],
-          "width": ["m", "mm", "cm", "ft", "in"],
-          "height": ["m", "mm", "cm", "ft", "in"]
-        },
-        "dimension_descriptions": {
-          "length": "Length of the rectangular solid",
-          "width": "Width of the rectangular solid",
-          "height": "Height of the rectangular solid"
-        }
       }
     }
   },
@@ -209,22 +212,23 @@
   },
   "geometry_type_aliases": {
     "1D": {
-      "line": ["line", "rod", "bar", "segment", "1d", "one-dimensional"]
+      "line": ["line", "segment", "1d", "one-dimensional"],
+      "rod": ["rod", "1d rod", "1-d rod"],
+      "bar": ["bar", "1d bar", "1-d bar"]
     },
     "2D": {
-      "plate": ["plate", "sheet", "panel", "slab", "2d", "two-dimensional"],
-      "membrane": ["membrane", "film", "thin-sheet"],
-      "disc": ["disc", "disk", "circle", "circular"],
-      "rectangle": ["rectangle", "rect", "rectangular", "square"]
+      "plate": ["plate", "sheet", "panel", "slab", "2d plate", "2-d plate", "2d", "two-dimensional"],
+      "membrane": ["membrane", "film", "thin-sheet", "2d membrane", "2-d membrane"],
+      "disc": ["disc", "disk", "circle", "circular", "2d circle", "2-d circle"],
+      "rectangle": ["rectangle", "rect", "rectangular", "2d rectangle", "2-d rectangle"],
+      "square": ["square", "2d square", "2-d square"]
     },
     "3D": {
-      "cube": ["cube", "box", "cubic", "3d", "three-dimensional"],
-      "box": ["box", "rectangular-box", "block"],
-      "beam": ["beam", "girder", "column", "structural"],
-      "cylinder": ["cylinder", "cylindrical", "tube", "pipe"],
-      "sphere": ["sphere", "spherical", "ball"],
-      "solid": ["solid", "body", "object", "structure"],
-      "rectangular": ["rectangular", "rect-solid"]
+      "cube": ["cube", "cubic", "3d cube", "3-d cube", "3d", "three-dimensional"],
+      "box": ["box", "rectangular-box", "block", "3d box", "3-d box"],
+      "beam": ["beam", "girder", "column", "structural", "3d beam", "3-d beam"],
+      "cylinder": ["cylinder", "cylindrical", "tube", "pipe", "3d cylinder", "3-d cylinder"],
+      "sphere": ["sphere", "spherical", "ball", "3d sphere", "3-d sphere"]
     }
   }
 }

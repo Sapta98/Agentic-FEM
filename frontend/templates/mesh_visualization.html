@@ -141,7 +141,7 @@
     </div>
 
     <!-- VTK.js loaded locally to avoid CDN issues -->
-    <script src="http://localhost:8080/static/js/vtk.js"></script>
+    <script src="/static/js/vtk.js" onerror="console.error('Failed to load VTK.js script');"></script>
     
     <script>
         // Get mesh dimension from template data
@@ -1324,12 +1324,41 @@
         }
         
         function updateInfo() {
-            const meshData = window.meshData;
+            const fullMeshData = window.meshData;
             const faces = window.faces;
             const cells = window.cells;
             
+            // Extract vertices array - handle both object format and flat array format
+            let vertices;
+            if (fullMeshData) {
+                if (fullMeshData.vertices) {
+                    // Object format with vertices property
+                    vertices = fullMeshData.vertices;
+                } else if (Array.isArray(fullMeshData)) {
+                    // Flat array format
+                    vertices = fullMeshData;
+                } else {
+                    vertices = null;
+                }
+            } else {
+                vertices = null;
+            }
             
-            document.getElementById('vertex-count').textContent = meshData ? meshData.length / 3 : 0;
+            // Calculate vertex count - handle both nested and flat formats
+            let vertexCount = 0;
+            if (vertices) {
+                if (Array.isArray(vertices) && vertices.length > 0) {
+                    if (Array.isArray(vertices[0])) {
+                        // Nested format: [[x,y,z], [x,y,z], ...]
+                        vertexCount = vertices.length;
+                    } else if (typeof vertices[0] === 'number') {
+                        // Flat format: [x,y,z,x,y,z,...]
+                        vertexCount = vertices.length / 3;
+                    }
+                }
+            }
+            
+            document.getElementById('vertex-count').textContent = vertexCount;
             document.getElementById('face-count').textContent = faces ? faces.length : 0;
             
             // Set mesh type based on dimension
@@ -1338,7 +1367,7 @@
             } else if (window.meshDimension === 2) {
                 document.getElementById('mesh-type').textContent = '2D Mesh';
             } else {
-            document.getElementById('mesh-type').textContent = '3D Mesh';
+                document.getElementById('mesh-type').textContent = '3D Mesh';
             }
             
         }

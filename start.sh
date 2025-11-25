@@ -1,24 +1,24 @@
 #!/bin/bash
 # Agentic FEM Startup Script
 
-echo "🚀 Starting Agentic FEM - Finite Element Method Application"
+echo "Starting Agentic FEM - Finite Element Method Application"
 echo "=========================================================="
 
 # Check if mamba is available (preferred over conda)
 if command -v mamba &> /dev/null; then
-    echo "🐍 Using mamba environment: agentic-fem"
+    echo "Using mamba environment: agentic-fem"
     mamba activate agentic-fem
     PYTHON_CMD="python"
 elif command -v conda &> /dev/null; then
-    echo "🐍 Using conda environment: agentic-fem"
+    echo "Using conda environment: agentic-fem"
     conda activate agentic-fem
     PYTHON_CMD="python"
 elif [ -d "venv" ]; then
-    echo "🔧 Using existing virtual environment..."
+    echo "Using existing virtual environment..."
     source venv/bin/activate
     PYTHON_CMD="./venv/bin/python"
 else
-    echo "📦 Creating virtual environment..."
+    echo "Creating virtual environment..."
     python3 -m venv venv
     source venv/bin/activate
     PYTHON_CMD="./venv/bin/python"
