@@ -4,7 +4,7 @@ A modular, multi-agent finite element method (FEM) simulation system that proces
 
 ## Preview
 
-![Agentic FEM Simulation Framework UI](Screenshot%202025-11-25%20at%202.39.14%20PM.png)
+![Agentic FEM Simulation Framework UI](./ui-preview.png)
 
 *The web interface provides an intuitive way to interact with the simulation system through natural language prompts.*
 
